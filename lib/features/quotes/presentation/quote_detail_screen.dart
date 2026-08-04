@@ -1,0 +1,294 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../app/theme/aura_essence_tokens.dart';
+import '../../../core/widgets/bento_tile.dart';
+import '../../../core/widgets/responsive_page.dart';
+import '../domain/document_pdf_builder.dart';
+import '../domain/quote.dart';
+import '../domain/quotes_providers.dart';
+
+/// Visual reference: no matching Stitch screen yet — generate one via
+/// `generate_screen_from_text` against the "Aura Essence" design system
+/// when refining this screen's design.
+class QuoteDetailScreen extends ConsumerStatefulWidget {
+  const QuoteDetailScreen({super.key, required this.quoteId});
+
+  final String quoteId;
+
+  @override
+  ConsumerState<QuoteDetailScreen> createState() => _QuoteDetailScreenState();
+}
+
+class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
+  Uint8List? _pdfBytes;
+  bool _isGenerating = false;
+  bool _isSendingEmail = false;
+  bool _isSharingWhatsApp = false;
+  String? _errorMessage;
+
+  Future<Uint8List> _buildBytes(Quote quote) {
+    return DocumentPdfBuilder.build(
+      documentTypeLabel: 'Cotización',
+      documentId: quote.id,
+      items: [
+        for (final item in quote.items)
+          PdfLineItem(
+            name: item.productNameSnapshot,
+            unitPrice: item.unitPrice,
+            quantity: item.quantity,
+            lineTotal: item.lineTotal,
+          ),
+      ],
+      total: quote.total,
+      currency: quote.currency,
+      clientName: quote.clientName,
+    );
+  }
+
+  Future<void> _generateAndUpload(Quote quote) async {
+    setState(() {
+      _isGenerating = true;
+      _errorMessage = null;
+    });
+    try {
+      final bytes = await _buildBytes(quote);
+      await ref
+          .read(quotesRepositoryProvider)
+          .uploadQuotePdf(quoteId: quote.id, bytes: bytes);
+      ref.invalidate(quoteProvider(quote.id));
+      setState(() => _pdfBytes = bytes);
+    } on Object catch (e) {
+      setState(() => _errorMessage = 'No se pudo generar el PDF: $e');
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  Future<void> _emailQuote(Quote quote) async {
+    final controller = TextEditingController(text: quote.clientEmail ?? '');
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enviar cotización por correo'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            labelText: 'Correo del destinatario',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
+    if (email == null || email.isEmpty) return;
+
+    setState(() {
+      _isSendingEmail = true;
+      _errorMessage = null;
+    });
+    try {
+      // Regenerate if this session doesn't have the bytes in memory (e.g.
+      // the quote was generated in a previous session) -- deterministic
+      // given the same items, so this is just re-deriving, not re-issuing.
+      final bytes = _pdfBytes ?? await _buildBytes(quote);
+      await ref
+          .read(quotesRepositoryProvider)
+          .sendQuoteEmail(
+            quoteId: quote.id,
+            recipientEmail: email,
+            pdfBytes: bytes,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Cotización enviada a $email')));
+      }
+    } on Object catch (e) {
+      setState(() => _errorMessage = 'No se pudo enviar el correo: $e');
+    } finally {
+      if (mounted) setState(() => _isSendingEmail = false);
+    }
+  }
+
+  Future<void> _shareViaWhatsApp(Quote quote) async {
+    setState(() {
+      _isSharingWhatsApp = true;
+      _errorMessage = null;
+    });
+    try {
+      final path = 'quotes/${quote.id}.pdf';
+      final signedUrl = await ref
+          .read(quotesRepositoryProvider)
+          .createSignedUrl(path);
+      final message = Uri.encodeComponent(
+        'Aquí tienes tu cotización de Aura Research Fragrance: $signedUrl',
+      );
+      // wa.me can only carry a link, not a binary attachment -- the shared
+      // message points at the same signed Storage URL used for email.
+      final phone = quote.clientPhone?.replaceAll(RegExp(r'[^0-9]'), '');
+      final waUri = Uri.parse(
+        (phone == null || phone.isEmpty)
+            ? 'https://wa.me/?text=$message'
+            : 'https://wa.me/$phone?text=$message',
+      );
+      await launchUrl(waUri, webOnlyWindowName: '_blank');
+    } on Object catch (e) {
+      setState(() => _errorMessage = 'No se pudo compartir por WhatsApp: $e');
+    } finally {
+      if (mounted) setState(() => _isSharingWhatsApp = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final quoteAsync = ref.watch(quoteProvider(widget.quoteId));
+    final textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cotización')),
+      body: quoteAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stackTrace) =>
+            Center(child: Text('Error al cargar la cotización: $error')),
+        data: (quote) {
+          final priceFormat = NumberFormat.simpleCurrency(name: quote.currency);
+          final hasPdf = _pdfBytes != null || quote.status != QuoteStatus.draft;
+          return ResponsivePage(
+            maxWidth: 720,
+            child: SingleChildScrollView(
+              padding: auraPagePadding(context),
+              child: BentoTile(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Cotización', style: textTheme.displayLarge),
+                    if (quote.clientName != null)
+                      Text(
+                        'Para: ${quote.clientName}',
+                        style: textTheme.bodyLarge,
+                      ),
+                    const SizedBox(height: AuraSpacing.unit * 2),
+                    for (final item in quote.items)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AuraSpacing.unit / 2,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${item.productNameSnapshot} × ${item.quantity}',
+                                style: textTheme.bodyMedium,
+                              ),
+                            ),
+                            Text(
+                              priceFormat.format(item.lineTotal),
+                              style: textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    const Divider(height: AuraSpacing.unit * 3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total', style: textTheme.headlineMedium),
+                        Text(
+                          priceFormat.format(quote.total),
+                          style: textTheme.headlineMedium,
+                        ),
+                      ],
+                    ),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: AuraSpacing.unit),
+                      Text(
+                        _errorMessage!,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: AuraColors.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AuraSpacing.unit * 3),
+                    if (!hasPdf)
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isGenerating
+                              ? null
+                              : () => _generateAndUpload(quote),
+                          child: _isGenerating
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AuraColors.onPrimary,
+                                  ),
+                                )
+                              : const Text('Generar PDF'),
+                        ),
+                      )
+                    else ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isSendingEmail
+                              ? null
+                              : () => _emailQuote(quote),
+                          child: _isSendingEmail
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AuraColors.onPrimary,
+                                  ),
+                                )
+                              : const Text('Enviar por correo'),
+                        ),
+                      ),
+                      const SizedBox(height: AuraSpacing.unit),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _isSharingWhatsApp
+                              ? null
+                              : () => _shareViaWhatsApp(quote),
+                          child: _isSharingWhatsApp
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Compartir por WhatsApp'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

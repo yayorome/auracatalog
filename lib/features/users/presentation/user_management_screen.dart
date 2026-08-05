@@ -202,6 +202,56 @@ class _UserTileState extends ConsumerState<_UserTile> {
     }
   }
 
+  Future<void> _setActive(bool active) async {
+    if (active == widget.profile.isActive) return;
+    if (!active) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Eliminar usuario'),
+          content: Text(
+            '¿Eliminar a '
+            '${widget.profile.fullName?.isNotEmpty == true ? widget.profile.fullName : widget.profile.email}'
+            '? Perderá acceso a la app de inmediato. Su historial de ventas '
+            'se conserva y puedes restaurar su acceso más tarde.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      await ref
+          .read(userManagementRepositoryProvider)
+          .setUserActive(targetUserId: widget.profile.id, isActive: active);
+      ref.invalidate(allProfilesProvider);
+    } on Object catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              active
+                  ? 'No se pudo restaurar el acceso: $e'
+                  : 'No se pudo eliminar el usuario: $e',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -241,15 +291,35 @@ class _UserTileState extends ConsumerState<_UserTile> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            DropdownButton<UserRole>(
-              value: profile.role,
-              items: [
-                for (final role in UserRole.values)
-                  DropdownMenuItem(value: role, child: Text(role.displayLabel)),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButton<UserRole>(
+                  value: profile.role,
+                  items: [
+                    for (final role in UserRole.values)
+                      DropdownMenuItem(
+                        value: role,
+                        child: Text(role.displayLabel),
+                      ),
+                  ],
+                  onChanged: (role) {
+                    if (role != null) _changeRole(role);
+                  },
+                ),
+                IconButton(
+                  icon: Icon(
+                    profile.isActive
+                        ? Icons.person_remove_alt_1_outlined
+                        : Icons.person_add_alt_1_outlined,
+                  ),
+                  tooltip: profile.isActive
+                      ? 'Eliminar usuario'
+                      : 'Restaurar acceso',
+                  color: profile.isActive ? AuraColors.error : null,
+                  onPressed: () => _setActive(!profile.isActive),
+                ),
               ],
-              onChanged: (role) {
-                if (role != null) _changeRole(role);
-              },
             ),
         ],
       ),

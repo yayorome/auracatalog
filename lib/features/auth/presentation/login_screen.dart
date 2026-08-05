@@ -72,26 +72,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: AuraColors.primary,
-                                borderRadius: BorderRadius.circular(
-                                  AuraRadii.md,
-                                ),
-                                border: Border.all(
-                                  color: AuraColors.onPrimary,
-                                  width: 1.5,
-                                ),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AuraRadii.md,
                               ),
-                              child: Text(
-                                'AR',
-                                style: textTheme.labelLarge?.copyWith(
-                                  color: AuraColors.onPrimary,
-                                  fontSize: 18,
-                                ),
+                              child: Image.asset(
+                                'lib/assets/logo.webp',
+                                width: 56,
+                                height: 56,
+                                fit: BoxFit.cover,
                               ),
                             ),
                             const SizedBox(height: AuraSpacing.unit * 2),

@@ -27,6 +27,24 @@ class UserManagementRepository {
     );
   }
 
+  /// Removes/restores a user's access via the `set_user_active` RPC
+  /// (SECURITY DEFINER, Owner-only, rejects targeting yourself -- same
+  /// shape as `promote_user`). This deactivates rather than hard-deletes:
+  /// `sale_items`/`sales.seller_id` reference `profiles`, so actually
+  /// deleting the row would orphan historical sales/report data. The row
+  /// and its sales history stay intact; the user just loses app access
+  /// ([AuthGate] signs out / blocks anyone whose profile comes back with
+  /// `is_active: false`).
+  Future<void> setUserActive({
+    required String targetUserId,
+    required bool isActive,
+  }) {
+    return _client.rpc(
+      'set_user_active',
+      params: {'target_user_id': targetUserId, 'active': isActive},
+    );
+  }
+
   /// Calls the `admin-create-user` Edge Function, which holds the service
   /// role key server-side and re-checks the caller is an Owner before
   /// inviting -- this repository never has admin credentials itself. The

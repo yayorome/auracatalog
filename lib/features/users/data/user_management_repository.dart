@@ -48,22 +48,25 @@ class UserManagementRepository {
 
   /// Calls the `admin-create-user` Edge Function, which holds the service
   /// role key server-side and re-checks the caller is an Owner before
-  /// inviting -- this repository never has admin credentials itself. The
-  /// new user starts as 'seller' (via the `handle_new_user` trigger) and
-  /// gets a Supabase-managed invite email to set their own password; the
-  /// Owner never sees or sets it.
+  /// creating the account -- this repository never has admin credentials
+  /// itself. The new user starts as 'seller' (via the `handle_new_user`
+  /// trigger). No invite email is sent (the project's custom SMTP is
+  /// misconfigured and 500s on every send) -- instead this returns the
+  /// generated `action_link` so the Owner can copy/share it manually. The
+  /// Owner never sees or sets the new user's password; they still set it
+  /// themselves via [SetPasswordScreen] when they open the link.
   ///
   /// `redirect_to` is the Owner's own current origin (same
   /// [AppReturnUrl.current] used for Mercado Pago's return URL) -- without
-  /// it, Supabase's `inviteUserByEmail` falls back to the project's Auth
+  /// it, the generated link's redirect falls back to the project's Auth
   /// "Site URL" setting, which points at whatever was last configured
-  /// there (e.g. `localhost` from local dev) regardless of where the
-  /// invite was actually sent from. Passing it explicitly makes the link
-  /// correct whether the Owner is inviting from local dev, a Vercel
-  /// preview, or production -- as long as that origin is also present in
-  /// the project's Auth "Redirect URLs" allow-list (Dashboard-only, not
-  /// settable via this repository).
-  Future<void> inviteUser({required String email, String? fullName}) async {
+  /// there (e.g. `localhost` from local dev) regardless of where the user
+  /// was actually created from. Passing it explicitly makes the link
+  /// correct whether the Owner is creating the user from local dev, a
+  /// Vercel preview, or production -- as long as that origin is also
+  /// present in the project's Auth "Redirect URLs" allow-list
+  /// (Dashboard-only, not settable via this repository).
+  Future<String> inviteUser({required String email, String? fullName}) async {
     final response = await _client.functions.invoke(
       'admin-create-user',
       body: {
@@ -74,7 +77,14 @@ class UserManagementRepository {
     );
     if (response.status != 200) {
       final error = (response.data is Map) ? response.data['error'] : null;
-      throw Exception(error ?? 'No se pudo invitar al usuario');
+      throw Exception(error ?? 'No se pudo crear el usuario');
     }
+    final actionLink = (response.data is Map)
+        ? response.data['action_link'] as String?
+        : null;
+    if (actionLink == null || actionLink.isEmpty) {
+      throw Exception('El servidor no devolvió un enlace de invitación');
+    }
+    return actionLink;
   }
 }

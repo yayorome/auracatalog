@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/aura_essence_tokens.dart';
@@ -59,14 +60,22 @@ class UserManagementScreen extends ConsumerWidget {
 void _showAddUserDialog(BuildContext context) {
   showDialog<void>(
     context: context,
+    barrierDismissible: false,
     builder: (context) => const _AddUserDialog(),
   );
 }
 
-/// New users always start as 'seller' (via `handle_new_user`) and get a
-/// Supabase-managed invite email to set their own password -- the Owner
-/// never types a password on someone else's behalf. Promote to Owner
-/// afterward with the role dropdown on their tile if needed.
+/// New users always start as 'seller' (via `handle_new_user`). No invite
+/// email is sent -- the Owner copies the generated link from this dialog
+/// and shares it manually (WhatsApp, in person, etc.); the new user sets
+/// their own password when they open it. Promote to Owner afterward with
+/// the role dropdown on their tile if needed.
+///
+/// `barrierDismissible: false` on the enclosing `showDialog` call is
+/// deliberate: once the link is generated there is no way to re-fetch
+/// this exact one (a second `generateLink` call would be needed to mint
+/// a fresh one), so an accidental outside-tap shouldn't be able to lose
+/// it before the Owner copies it.
 class _AddUserDialog extends ConsumerStatefulWidget {
   const _AddUserDialog();
 
@@ -80,6 +89,8 @@ class _AddUserDialogState extends ConsumerState<_AddUserDialog> {
   final _fullNameController = TextEditingController();
   bool _isSubmitting = false;
   String? _errorMessage;
+  String? _inviteLink;
+  String? _invitedEmail;
 
   @override
   void dispose() {
@@ -96,25 +107,83 @@ class _AddUserDialogState extends ConsumerState<_AddUserDialog> {
     });
     try {
       final email = _emailController.text.trim();
-      await ref
+      final link = await ref
           .read(userManagementRepositoryProvider)
           .inviteUser(email: email, fullName: _fullNameController.text.trim());
       ref.invalidate(allProfilesProvider);
       if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Invitación enviada a $email')));
+        setState(() {
+          _inviteLink = link;
+          _invitedEmail = email;
+        });
       }
     } on Object catch (e) {
-      setState(() => _errorMessage = 'No se pudo invitar al usuario: $e');
+      setState(() => _errorMessage = 'No se pudo crear el usuario: $e');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
+  Future<void> _copyLink() async {
+    final link = _inviteLink;
+    if (link == null) return;
+    await Clipboard.setData(ClipboardData(text: link));
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enlace copiado')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final link = _inviteLink;
+    if (link != null) {
+      return AlertDialog(
+        title: const Text('Usuario creado'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Comparte este enlace con ${_invitedEmail ?? 'el usuario'} para '
+              'que cree su contraseña. No se envió ningún correo.',
+            ),
+            const SizedBox(height: AuraSpacing.unit * 2),
+            Container(
+              padding: const EdgeInsets.all(AuraSpacing.unit * 1.5),
+              decoration: BoxDecoration(
+                color: AuraColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(AuraRadii.sm),
+                border: Border.all(color: AuraColors.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      link,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy_outlined),
+                    tooltip: 'Copiar enlace',
+                    onPressed: _copyLink,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Listo'),
+          ),
+        ],
+      );
+    }
+
     return AlertDialog(
       title: const Text('Agregar usuario'),
       content: Form(
@@ -163,7 +232,7 @@ class _AddUserDialogState extends ConsumerState<_AddUserDialog> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Enviar invitación'),
+              : const Text('Crear usuario'),
         ),
       ],
     );

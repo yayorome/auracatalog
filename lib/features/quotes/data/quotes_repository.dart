@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -98,8 +97,8 @@ class QuotesRepository {
     return path;
   }
 
-  /// Signed URL valid for 7 days — long enough that a link emailed or sent
-  /// via WhatsApp today still resolves if the client opens it weeks later,
+  /// Signed URL valid for 7 days — long enough that a link sent via
+  /// WhatsApp today still resolves if the client opens it weeks later,
   /// short enough to not be a permanent public link. Regenerate on demand
   /// rather than storing it (Storage objects are durable; only the URL
   /// expires).
@@ -107,29 +106,5 @@ class QuotesRepository {
     return _client.storage
         .from(_bucket)
         .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
-  }
-
-  /// Calls the `send-document-email` Edge Function, which holds the Resend
-  /// API key server-side. Sends the PDF bytes directly rather than a
-  /// Storage path — the client already has them in memory from generating
-  /// the PDF, so this avoids a second round trip.
-  Future<void> sendQuoteEmail({
-    required String quoteId,
-    required String recipientEmail,
-    required Uint8List pdfBytes,
-  }) async {
-    final response = await _client.functions.invoke(
-      'send-document-email',
-      body: {
-        'recipient_email': recipientEmail,
-        'subject': 'Tu cotización de Aura Research Fragrance',
-        'body_text': 'Adjuntamos tu cotización.',
-        'pdf_base64': base64Encode(pdfBytes),
-        'filename': 'quote-$quoteId.pdf',
-      },
-    );
-    if (response.status != 200) {
-      throw Exception('No se pudo enviar el correo: ${response.data}');
-    }
   }
 }

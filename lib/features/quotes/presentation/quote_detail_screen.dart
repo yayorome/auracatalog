@@ -27,7 +27,6 @@ class QuoteDetailScreen extends ConsumerStatefulWidget {
 class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   Uint8List? _pdfBytes;
   bool _isGenerating = false;
-  bool _isSendingEmail = false;
   bool _isSharingWhatsApp = false;
   String? _errorMessage;
 
@@ -66,61 +65,6 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
       setState(() => _errorMessage = 'No se pudo generar el PDF: $e');
     } finally {
       if (mounted) setState(() => _isGenerating = false);
-    }
-  }
-
-  Future<void> _emailQuote(Quote quote) async {
-    final controller = TextEditingController(text: quote.clientEmail ?? '');
-    final email = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Enviar cotización por correo'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            labelText: 'Correo del destinatario',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Enviar'),
-          ),
-        ],
-      ),
-    );
-    if (email == null || email.isEmpty) return;
-
-    setState(() {
-      _isSendingEmail = true;
-      _errorMessage = null;
-    });
-    try {
-      // Regenerate if this session doesn't have the bytes in memory (e.g.
-      // the quote was generated in a previous session) -- deterministic
-      // given the same items, so this is just re-deriving, not re-issuing.
-      final bytes = _pdfBytes ?? await _buildBytes(quote);
-      await ref
-          .read(quotesRepositoryProvider)
-          .sendQuoteEmail(
-            quoteId: quote.id,
-            recipientEmail: email,
-            pdfBytes: bytes,
-          );
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Cotización enviada a $email')));
-      }
-    } on Object catch (e) {
-      setState(() => _errorMessage = 'No se pudo enviar el correo: $e');
-    } finally {
-      if (mounted) setState(() => _isSendingEmail = false);
     }
   }
 
@@ -244,29 +188,10 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                               : const Text('Generar PDF'),
                         ),
                       )
-                    else ...[
+                    else
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _isSendingEmail
-                              ? null
-                              : () => _emailQuote(quote),
-                          child: _isSendingEmail
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AuraColors.onPrimary,
-                                  ),
-                                )
-                              : const Text('Enviar por correo'),
-                        ),
-                      ),
-                      const SizedBox(height: AuraSpacing.unit),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
                           onPressed: _isSharingWhatsApp
                               ? null
                               : () => _shareViaWhatsApp(quote),
@@ -276,12 +201,12 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
+                                    color: AuraColors.onPrimary,
                                   ),
                                 )
                               : const Text('Compartir por WhatsApp'),
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),

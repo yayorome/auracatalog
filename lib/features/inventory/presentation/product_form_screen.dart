@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../app/router/app_router.dart';
+import '../../../app/router/route_paths.dart';
 import '../../../app/theme/aura_essence_tokens.dart';
 import '../../../core/widgets/bento_tile.dart';
 import '../../../core/widgets/responsive_page.dart';
@@ -40,6 +42,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Uint8List? _pickedImageBytes;
   String? _pickedImageExtension;
   bool _isSaving = false;
+  bool _isDeleting = false;
   bool _prefilled = false;
   String? _errorMessage;
 
@@ -180,6 +183,64 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
+  Future<void> _confirmDelete(Product product) async {
+    if (product.stockQuantity != 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No se puede eliminar: quedan existencias en stock. '
+            'Ajusta el stock a 0 antes de eliminar.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar producto'),
+        content: Text(
+          '¿Eliminar "${product.name}"? Se ocultará del catálogo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() {
+      _isDeleting = true;
+      _errorMessage = null;
+    });
+    try {
+      await ref
+          .read(inventoryRepositoryProvider)
+          .deactivateProduct(widget.productId!);
+      ref.invalidate(productsProvider);
+      ref.invalidate(productProvider(widget.productId!));
+      // ref.read(goRouterProvider) rather than context.pop(): navigation
+      // after an await + provider invalidation needs the Provider-scoped
+      // GoRouter (see CLAUDE.md's go_router async-gap note).
+      if (mounted) ref.read(goRouterProvider).go(RoutePaths.catalog);
+    } on Object catch (e) {
+      final message = e.toString().contains('product_has_stock')
+          ? 'No se puede eliminar: quedan existencias en stock.'
+          : 'No se pudo eliminar el producto: $e';
+      setState(() => _errorMessage = message);
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final productAsync = _isEditing
@@ -190,9 +251,27 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       productAsync.whenData(_prefill);
     }
 
+    final currentProduct = productAsync?.value;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar producto' : 'Agregar producto'),
+        actions: [
+          if (_isEditing)
+            IconButton(
+              icon: _isDeleting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline),
+              tooltip: 'Eliminar producto',
+              onPressed: (_isDeleting || currentProduct == null)
+                  ? null
+                  : () => _confirmDelete(currentProduct),
+            ),
+        ],
       ),
       body: (productAsync != null && productAsync.isLoading)
           ? const Center(child: CircularProgressIndicator())

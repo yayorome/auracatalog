@@ -71,6 +71,21 @@ class InventoryRepository {
         .eq('id', productId);
   }
 
+  /// Soft-deletes the product by hiding it from the catalog
+  /// (`CatalogRepository.fetchProducts` filters on `is_active`), keeping
+  /// sale/quote/inventory history intact — a hard `DELETE` would violate
+  /// the `NO ACTION` foreign keys those tables hold on `products.id` for any
+  /// product that has ever been sold or quoted. Blocked server-side by the
+  /// `products_prevent_deactivate_with_stock` trigger unless stock is 0
+  /// (throws a `product_has_stock` [PostgrestException] otherwise), mirroring
+  /// how `mark_sale_paid` throws `insufficient_stock`.
+  Future<void> deactivateProduct(String productId) async {
+    await _client
+        .from('products')
+        .update({'is_active': false})
+        .eq('id', productId);
+  }
+
   /// Replaces the product's photo set with a single primary image (Phase-2
   /// scope is one photo per product; `product_images.position` leaves room
   /// for a multi-photo gallery later without a schema change).

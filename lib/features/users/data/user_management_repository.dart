@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/utils/app_return_url.dart';
 import '../../auth/domain/app_user.dart';
 
 /// `profiles_select_own_or_owner` RLS already lets an Owner see every row,
@@ -51,12 +52,24 @@ class UserManagementRepository {
   /// new user starts as 'seller' (via the `handle_new_user` trigger) and
   /// gets a Supabase-managed invite email to set their own password; the
   /// Owner never sees or sets it.
+  ///
+  /// `redirect_to` is the Owner's own current origin (same
+  /// [AppReturnUrl.current] used for Mercado Pago's return URL) -- without
+  /// it, Supabase's `inviteUserByEmail` falls back to the project's Auth
+  /// "Site URL" setting, which points at whatever was last configured
+  /// there (e.g. `localhost` from local dev) regardless of where the
+  /// invite was actually sent from. Passing it explicitly makes the link
+  /// correct whether the Owner is inviting from local dev, a Vercel
+  /// preview, or production -- as long as that origin is also present in
+  /// the project's Auth "Redirect URLs" allow-list (Dashboard-only, not
+  /// settable via this repository).
   Future<void> inviteUser({required String email, String? fullName}) async {
     final response = await _client.functions.invoke(
       'admin-create-user',
       body: {
         'email': email,
         if (fullName != null && fullName.isNotEmpty) 'full_name': fullName,
+        'redirect_to': AppReturnUrl.current(),
       },
     );
     if (response.status != 200) {

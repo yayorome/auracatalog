@@ -1,6 +1,7 @@
 /// Central route path constants — no raw route strings anywhere else.
 abstract class RoutePaths {
   static const login = '/login';
+  static const setPassword = '/set-password';
   static const catalog = '/catalog';
   static const productDetail = '/catalog/:productId';
   static const productNew = '/catalog/new';

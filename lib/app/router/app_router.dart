@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/domain/auth_providers.dart';
 import '../../features/auth/presentation/auth_gate.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/set_password_screen.dart';
 import '../../features/cart/presentation/cart_screen.dart';
 import '../../features/catalog/presentation/product_detail_screen.dart';
 import '../../features/inventory/presentation/product_form_screen.dart';
@@ -18,11 +19,14 @@ import 'route_paths.dart';
 /// [authRepositoryProvider] and rebuild routes reactively.
 ///
 /// Only authenticated-vs-not is enforced here (redirect unauthenticated ->
-/// /login, authenticated away from /login -> /catalog). Owner-only routes
-/// (productNew/productEdit) are not redirect-gated yet — their screens are
-/// unreachable from Seller UI (no button navigates there) and every write
-/// they perform is enforced server-side by RLS regardless. Add an explicit
-/// redirect check once a Seller-hostile deep link becomes a real concern.
+/// /login, authenticated away from /login -> /catalog), plus a mandatory
+/// detour to /set-password when [needsPasswordSetupProvider] is set (see
+/// its doc comment -- an invite/recovery link signs the user in without
+/// ever giving them a password). Owner-only routes (productNew/productEdit)
+/// are not redirect-gated yet — their screens are unreachable from Seller
+/// UI (no button navigates there) and every write they perform is enforced
+/// server-side by RLS regardless. Add an explicit redirect check once a
+/// Seller-hostile deep link becomes a real concern.
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authRepository = ref.watch(authRepositoryProvider);
 
@@ -32,15 +36,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isAuthenticated = authRepository.currentUser != null;
       final isGoingToLogin = state.matchedLocation == RoutePaths.login;
+      final isGoingToSetPassword =
+          state.matchedLocation == RoutePaths.setPassword;
 
       if (!isAuthenticated && !isGoingToLogin) return RoutePaths.login;
       if (isAuthenticated && isGoingToLogin) return RoutePaths.catalog;
+      if (isAuthenticated &&
+          ref.read(needsPasswordSetupProvider) &&
+          !isGoingToSetPassword) {
+        return RoutePaths.setPassword;
+      }
       return null;
     },
     routes: [
       GoRoute(
         path: RoutePaths.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.setPassword,
+        builder: (context, state) => const SetPasswordScreen(),
       ),
       GoRoute(
         path: RoutePaths.catalog,

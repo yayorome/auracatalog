@@ -65,6 +65,7 @@ dev_dependencies:
   json_serializable: ^6.14.1
   mocktail: ^1.0.5
   shared_preferences: ^2.5.5
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -109,3 +110,15 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Generates ios/Runner/Assets.xcassets/AppIcon.appiconset and the
+# android/app/src/main/res/mipmap-* ic_launcher.png sets from a single
+# source image via `dart run flutter_launcher_icons` -- assets/icon/icon.png
+# is a 1024x1024 square PNG derived from lib/assets/logo.webp (which isn't
+# square and isn't guaranteed high-res enough for the 1024x1024 App Store
+# icon, hence the separate source rather than reusing that file directly).
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  remove_alpha_ios: true

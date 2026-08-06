@@ -4,10 +4,13 @@ export function ProductImage({
   imageUrl,
   alt,
   sizes,
+  zoomOnHover = false,
 }: {
   imageUrl: string | null;
   alt: string;
   sizes: string;
+  /** Requires a `group` class on an ancestor (e.g. the card's <Link>). */
+  zoomOnHover?: boolean;
 }) {
   if (!imageUrl) {
     return (
@@ -23,7 +26,11 @@ export function ProductImage({
       alt={alt}
       fill
       sizes={sizes}
-      className="object-cover"
+      className={
+        zoomOnHover
+          ? "object-cover transition-transform duration-500 group-hover:scale-105"
+          : "object-cover"
+      }
     />
   );
 }

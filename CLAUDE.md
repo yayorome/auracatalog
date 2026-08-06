@@ -73,7 +73,24 @@ The Supabase schema was never pared down to match the app: tables like `profiles
 
 `Libre_Caslon_Text` and `Hanken_Grotesk` (used in `layout.tsx`) are real exports, but font family names don't always map 1:1 to a `next/font/google` function name (e.g. spaces become underscores, and not every Google Font variant is exported under the name you'd guess). Grep `node_modules/next/dist/compiled/@next/font/dist/google/index.d.ts` for the family name before assuming an import works, and check the declared `weight`/`subsets` options in the same file — some fonts require an explicit `weight` (no default).
 
+### `error.tsx` uses `retry`, not `reset` — check the version history before copying an older example
+
+`src/app/error.tsx` (Client Component, catches thrown errors from `fetchProducts`/`fetchProduct`) uses the `retry` prop. `retry` only became stable in **v16.3.0** (this project's exact version) — `reset` still exists but the docs now say to prefer `retry`. An example copied from an older Next.js version or from memory will likely use `reset`; check `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md`'s version history before assuming either name.
+
+### Contrast-safe accent color — don't revert `--color-aura-tertiary` to the Stitch source value
+
+The Stitch-sourced sage accent (`#8a9a8e`) is only ~2.96:1 against white/cream — fails WCAG AA's 4.5:1 for text (found auditing the "DESTACADO" label against the `accessibility` skill's contrast table). `--color-aura-tertiary` in `globals.css` is intentionally darkened to `#5f6f63` (~5.3:1) so it stays usable as text; if a future change needs the lighter original tone, use it only for non-text fills/borders, not text color, or compute contrast again before reusing `#8a9a8e` for a label.
+
+### One signature visual element, not decoration — `AuraGlow` in `catalog-view.tsx`
+
+Per a `frontend-design` skill review, the page had no distinctive moment tied to the actual brand ("Aura" = a halo/glow) — everything read as a generic catalog grid. `AuraGlow` (concentric rings behind the featured/best-seller card only) is the deliberate one-time payoff; it's intentionally **not** reused on grid cards, the detail page, or anywhere else — per the design skill's restraint principle, repeating a "signature" element everywhere turns it back into decoration. If you're tempted to add the glow elsewhere, reconsider whether the page needs a second signature moment instead (usually it doesn't).
+
+### Reduced motion is a blanket rule, not per-component
+
+`globals.css` has a single `@media (prefers-reduced-motion: reduce)` block that zeroes out `animation-duration`/`transition-duration` globally (the pattern from the `accessibility` skill), covering the grid's stagger fade-in (`.animate-fade-in-up`) and the image hover-zoom (`ProductImage`'s `zoomOnHover`) alike. New animations/transitions don't need their own `motion-reduce:` variant — the global rule already catches them — but avoid working around it with `!important` overrides or inline styles that would defeat it.
+
 ## Workflow notes
 
 - Use the `supabase` MCP tools for schema/database work (check `list_tables` before making schema changes; apply changes via `apply_migration`; run `get_advisors` after every schema change).
 - Before writing any Next.js code, skim the relevant page under `node_modules/next/dist/docs/01-app/` — this version is newer than most training data and the on-disk docs are the authority (see the warning imported at the top of this file via `@AGENTS.md`).
+- Design/quality skills installed at `~/.agents/skills/{frontend-design,vercel-react-best-practices,accessibility}` (global, via `npx skills add`) — reread them before a visual redesign, a performance pass, or an accessibility audit rather than re-deriving the guidance from scratch.

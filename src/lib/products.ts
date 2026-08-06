@@ -41,6 +41,11 @@ interface ProductRow {
 
 const PRODUCT_PHOTOS_BUCKET = "product-photos";
 
+// Explicit column list (rather than "*") so we don't pull columns this app
+// never reads off every request.
+const PRODUCT_COLUMNS =
+  "id, name, description, brand, sku, price, currency, stock_quantity, category, fragrance_notes, is_active, units_sold, milliliters, product_images(storage_path, position)";
+
 function primaryImageUrl(images: ProductImageRow[] | null): string | null {
   if (!images || images.length === 0) return null;
   const sorted = [...images].sort((a, b) => a.position - b.position);
@@ -72,7 +77,7 @@ function toProduct(row: ProductRow): Product {
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
-    .select("*, product_images(storage_path, position)")
+    .select(PRODUCT_COLUMNS)
     .eq("is_active", true)
     .order("units_sold", { ascending: false })
     .order("name", { ascending: true });
@@ -84,7 +89,7 @@ export async function fetchProducts(): Promise<Product[]> {
 export async function fetchProduct(productId: string): Promise<Product | null> {
   const { data, error } = await supabase
     .from("products")
-    .select("*, product_images(storage_path, position)")
+    .select(PRODUCT_COLUMNS)
     .eq("id", productId)
     .maybeSingle();
 

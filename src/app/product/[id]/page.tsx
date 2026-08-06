@@ -26,6 +26,7 @@ export default async function ProductDetailPage({
         <BackArrowIcon className="h-5 w-5" />
       </Link>
 
+      <main>
       {product.imageUrl && (
         <div className="relative mb-6 aspect-square w-full overflow-hidden rounded-aura-lg">
           <ProductImage
@@ -91,6 +92,7 @@ export default async function ProductDetailPage({
           {product.stockQuantity > 0 ? "Disponible" : "Agotado"}
         </p>
       </div>
+      </main>
     </div>
   );
 }

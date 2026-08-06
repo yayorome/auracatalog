@@ -42,43 +42,49 @@ export function CatalogView({ products }: { products: Product[] }) {
         </h1>
       </header>
 
-      {products.length === 0 ? (
-        <p className="py-16 text-center text-aura-on-surface-variant">
-          Aún no hay productos.
-        </p>
-      ) : (
-        <>
-          {categories.length > 0 && (
-            <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-              <CategoryChip
-                label="Todos"
-                selected={selectedCategory === null}
-                onClick={() => setSelectedCategory(null)}
-              />
-              {categories.map((category) => (
+      <main>
+        {products.length === 0 ? (
+          <p className="py-16 text-center text-aura-on-surface-variant">
+            Aún no hay productos.
+          </p>
+        ) : (
+          <>
+            {categories.length > 0 && (
+              <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
                 <CategoryChip
-                  key={category}
-                  label={category}
-                  selected={selectedCategory === category}
-                  onClick={() => setSelectedCategory(category)}
+                  label="Todos"
+                  selected={selectedCategory === null}
+                  onClick={() => setSelectedCategory(null)}
+                />
+                {categories.map((category) => (
+                  <CategoryChip
+                    key={category}
+                    label={category}
+                    selected={selectedCategory === category}
+                    onClick={() => setSelectedCategory(category)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {featured && (
+              <div className="mb-3">
+                <FeaturedProductCard product={featured} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {rest.map((product, index) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  delayMs={Math.min(index, 10) * 40}
                 />
               ))}
             </div>
-          )}
-
-          {featured && (
-            <div className="mb-3">
-              <FeaturedProductCard product={featured} />
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {rest.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </main>
     </div>
   );
 }
@@ -107,18 +113,40 @@ function CategoryChip({
   );
 }
 
+/**
+ * The one deliberate signature moment on the page: a literal "aura" — a
+ * halo of concentric rings bleeding off the card edge — behind the best
+ * seller, tying back to the brand name. Nowhere else on the page repeats
+ * this motif, so it stays a single accent rather than decoration.
+ */
+function AuraGlow() {
+  return (
+    <svg
+      viewBox="0 0 200 200"
+      aria-hidden
+      className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 text-aura-tertiary opacity-[0.14] sm:h-72 sm:w-72"
+    >
+      <circle cx="100" cy="100" r="99" fill="none" stroke="currentColor" strokeWidth="1" />
+      <circle cx="100" cy="100" r="72" fill="none" stroke="currentColor" strokeWidth="1" />
+      <circle cx="100" cy="100" r="45" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
 function FeaturedProductCard({ product }: { product: Product }) {
   return (
     <Link
       href={`/product/${product.id}`}
-      className="block rounded-aura-lg border border-aura-outline-variant bg-aura-surface-container-lowest p-4 transition-shadow hover:shadow-sm"
+      className="animate-fade-in-up group relative block overflow-hidden rounded-aura-lg border border-aura-outline-variant bg-aura-surface-container-lowest p-4 transition-shadow hover:shadow-md sm:p-6"
     >
-      <div className="flex items-start gap-4">
-        <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-aura-md">
+      <AuraGlow />
+      <div className="relative flex items-start gap-4 sm:gap-6">
+        <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-aura-md sm:h-[168px] sm:w-[168px]">
           <ProductImage
             imageUrl={product.imageUrl}
             alt={product.name}
-            sizes="120px"
+            sizes="168px"
+            zoomOnHover
           />
         </div>
         <div className="min-w-0 flex-1">
@@ -132,7 +160,7 @@ function FeaturedProductCard({ product }: { product: Product }) {
               </span>
             )}
           </div>
-          <h2 className="mt-1 truncate font-headline text-2xl text-aura-on-surface">
+          <h2 className="mt-1 truncate font-headline text-2xl tracking-tight text-aura-on-surface sm:text-4xl">
             {product.name}
           </h2>
           {product.description && (
@@ -140,12 +168,12 @@ function FeaturedProductCard({ product }: { product: Product }) {
               {product.description}
             </p>
           )}
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-sm font-semibold text-aura-on-surface">
+          <div className="mt-2 flex items-baseline gap-1.5 sm:mt-4">
+            <span className="text-sm font-semibold text-aura-on-surface sm:text-xl">
               {formatPrice(product.price, product.currency)}
             </span>
             {product.milliliters != null && (
-              <span className="text-xs text-aura-on-surface-variant">
+              <span className="text-xs text-aura-on-surface-variant sm:text-sm">
                 {product.milliliters} ml
               </span>
             )}
@@ -156,22 +184,30 @@ function FeaturedProductCard({ product }: { product: Product }) {
   );
 }
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({
+  product,
+  delayMs,
+}: {
+  product: Product;
+  delayMs: number;
+}) {
   return (
     <Link
       href={`/product/${product.id}`}
-      className="flex flex-col rounded-aura-lg border border-aura-outline-variant bg-aura-surface-container-lowest p-3 transition-shadow hover:shadow-sm"
+      style={{ animationDelay: `${delayMs}ms` }}
+      className="animate-fade-in-up group flex flex-col rounded-aura-lg border border-aura-outline-variant bg-aura-surface-container-lowest p-3 transition-shadow hover:shadow-sm"
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-aura-md">
         <ProductImage
           imageUrl={product.imageUrl}
           alt={product.name}
           sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+          zoomOnHover
         />
       </div>
-      <p className="mt-2 truncate text-base text-aura-on-surface">
+      <h3 className="mt-2 truncate text-base font-normal text-aura-on-surface">
         {product.name}
-      </p>
+      </h3>
       <div className="mt-0.5 flex items-baseline gap-1.5">
         <span className="text-sm font-semibold text-aura-on-surface">
           {formatPrice(product.price, product.currency)}

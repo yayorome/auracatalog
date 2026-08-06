@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk, Libre_Caslon_Text } from "next/font/google";
 import "./globals.css";
+import { SocialLinks } from "@/components/social-links";
 
 const libreCaslonText = Libre_Caslon_Text({
   variable: "--font-libre-caslon-text",
@@ -26,7 +27,10 @@ export default function RootLayout({
       lang="es"
       className={`${libreCaslonText.variable} ${hankenGrotesk.variable}`}
     >
-      <body className="min-h-screen antialiased font-body">{children}</body>
+      <body className="min-h-screen antialiased font-body">
+        {children}
+        <SocialLinks />
+      </body>
     </html>
   );
 }

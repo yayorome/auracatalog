@@ -14,8 +14,8 @@ const hankenGrotesk = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Aura Research Fragrance",
-  description: "Catálogo de perfumes Aura Research.",
+  title: "Aura Research Parfums",
+  description: "Catálogo de perfumes Aura Research Parfums.",
 };
 
 export default function RootLayout({

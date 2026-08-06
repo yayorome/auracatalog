@@ -38,7 +38,7 @@ export function CatalogView({ products }: { products: Product[] }) {
     <div className="mx-auto max-w-[1400px] px-5 py-6 md:px-16">
       <header className="mb-6 text-center">
         <h1 className="font-headline text-3xl font-normal text-aura-on-surface">
-          Aura Research
+          Aura Research Parfums
         </h1>
       </header>
 

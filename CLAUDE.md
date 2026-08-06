@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Product overview
 
-**Aura Research Fragrance** — a public, login-free web landing page for browsing a perfume catalog. There is no cart, checkout, sales, quotes, user accounts, or admin/reporting UI — visitors can only view the list of products and their detail pages.
+**Aura Research Parfums** — a public, login-free web landing page for browsing a perfume catalog. There is no cart, checkout, sales, quotes, user accounts, or admin/reporting UI — visitors can only view the list of products and their detail pages.
 
 - **Product catalog**: a public, read-only list of active products (photos served from Supabase Storage), filterable by category, with a featured "best seller" card and per-product detail pages.
 

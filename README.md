@@ -1,4 +1,4 @@
-# Aura Research Fragrance — Catalog
+# Aura Research Parfums — Catalog
 
 A public, login-free catalog landing page for browsing a perfume catalog — built with Next.js (App Router) and Supabase.
 

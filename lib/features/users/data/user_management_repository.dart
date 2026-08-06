@@ -56,9 +56,8 @@ class UserManagementRepository {
   /// Owner never sees or sets the new user's password; they still set it
   /// themselves via [SetPasswordScreen] when they open the link.
   ///
-  /// `redirect_to` is the Owner's own current origin (same
-  /// [AppReturnUrl.current] used for Mercado Pago's return URL) -- without
-  /// it, the generated link's redirect falls back to the project's Auth
+  /// `redirect_to` is the Owner's own current origin ([AppReturnUrl.current])
+  /// -- without it, the generated link's redirect falls back to the project's Auth
   /// "Site URL" setting, which points at whatever was last configured
   /// there (e.g. `localhost` from local dev) regardless of where the user
   /// was actually created from. Passing it explicitly makes the link

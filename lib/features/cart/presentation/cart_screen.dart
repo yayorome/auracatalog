@@ -5,11 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../app/router/app_router.dart';
 import '../../../app/router/route_paths.dart';
 import '../../../app/theme/aura_essence_tokens.dart';
-import '../../../core/utils/app_return_url.dart';
 import '../../../core/widgets/bento_tile.dart';
 import '../../../core/widgets/responsive_page.dart';
 import '../../auth/domain/auth_providers.dart';
-import '../../payments/domain/payments_providers.dart';
 import '../../quotes/domain/quotes_providers.dart';
 import '../../sales/domain/sales_providers.dart';
 import '../domain/cart_providers.dart';
@@ -23,12 +21,10 @@ class CartScreen extends ConsumerStatefulWidget {
 
 class _CartScreenState extends ConsumerState<CartScreen> {
   bool _isSubmittingCash = false;
-  bool _isSubmittingMercadoPago = false;
   bool _isSubmittingQuote = false;
   String? _errorMessage;
 
-  bool get _isSubmitting =>
-      _isSubmittingCash || _isSubmittingMercadoPago || _isSubmittingQuote;
+  bool get _isSubmitting => _isSubmittingCash || _isSubmittingQuote;
 
   Future<void> _completeCashSale() async {
     final items = ref.read(cartProvider);
@@ -61,41 +57,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       setState(() => _errorMessage = message);
     } finally {
       if (mounted) setState(() => _isSubmittingCash = false);
-    }
-  }
-
-  Future<void> _payWithMercadoPago() async {
-    final items = ref.read(cartProvider);
-    final profile = ref.read(currentProfileProvider).value;
-    if (items.isEmpty || profile == null) return;
-
-    setState(() {
-      _isSubmittingMercadoPago = true;
-      _errorMessage = null;
-    });
-    try {
-      final saleId = await ref
-          .read(salesRepositoryProvider)
-          .createMercadoPagoSale(sellerId: profile.id, items: items);
-      final checkoutUrl = await ref
-          .read(paymentsRepositoryProvider)
-          .createCheckoutUrl(
-            saleId: saleId,
-            returnBaseUrl: AppReturnUrl.current(),
-          );
-      ref.read(cartProvider.notifier).clear();
-      if (mounted) {
-        // Don't auto-launch the checkout URL here -- the seller shares it
-        // with the client (copy/WhatsApp) from PaymentStatusScreen instead,
-        // since the person paying is often not the person at this device.
-        ref
-            .read(goRouterProvider)
-            .push(RoutePaths.paymentStatusPath(saleId), extra: checkoutUrl);
-      }
-    } on Object catch (e) {
-      setState(() => _errorMessage = 'No se pudo iniciar el pago: $e');
-    } finally {
-      if (mounted) setState(() => _isSubmittingMercadoPago = false);
     }
   }
 
@@ -241,26 +202,6 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                                       ),
                                     )
                                   : const Text('Completar venta (efectivo)'),
-                            ),
-                          ),
-                          const SizedBox(height: AuraSpacing.unit),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: _isSubmitting
-                                  ? null
-                                  : _payWithMercadoPago,
-                              child: _isSubmittingMercadoPago
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Generar enlace de pago (Mercado Pago)',
-                                    ),
                             ),
                           ),
                           const SizedBox(height: AuraSpacing.unit),

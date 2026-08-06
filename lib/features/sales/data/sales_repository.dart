@@ -51,8 +51,7 @@ class SalesRepository {
   /// Creates a sale + its line items, then calls `mark_sale_paid` to
   /// atomically decrement stock and mark it paid. Cash-only: the seller has
   /// already collected payment in person, so there's no async confirmation
-  /// step (contrast [createMercadoPagoSale], which stays `pending_payment`
-  /// until the webhook confirms).
+  /// step.
   ///
   /// Throws a [PostgrestException] (e.g. `insufficient_stock for product
   /// ...`) if `mark_sale_paid` fails; the sale row is left in
@@ -75,27 +74,5 @@ class SalesRepository {
     );
     await _client.rpc('mark_sale_paid', params: {'p_sale_id': saleId});
     return saleId;
-  }
-
-  /// Creates a sale + its line items in `pending_payment` and leaves it
-  /// there — the caller opens the Mercado Pago checkout URL
-  /// (`PaymentsRepository.createCheckoutUrl`), and `mark_sale_paid` is
-  /// called later by the `mercadopago-webhook` Edge Function once payment
-  /// is confirmed, not by the client.
-  Future<String> createMercadoPagoSale({
-    required String sellerId,
-    required List<CartItem> items,
-    String? clientName,
-    String? clientEmail,
-    String? clientPhone,
-  }) {
-    return _createPendingSale(
-      sellerId: sellerId,
-      items: items,
-      paymentMethod: 'mercado_pago',
-      clientName: clientName,
-      clientEmail: clientEmail,
-      clientPhone: clientPhone,
-    );
   }
 }

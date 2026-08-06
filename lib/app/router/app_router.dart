@@ -8,7 +8,6 @@ import '../../features/auth/presentation/set_password_screen.dart';
 import '../../features/cart/presentation/cart_screen.dart';
 import '../../features/catalog/presentation/product_detail_screen.dart';
 import '../../features/inventory/presentation/product_form_screen.dart';
-import '../../features/payments/presentation/payment_status_screen.dart';
 import '../../features/quotes/presentation/quote_detail_screen.dart';
 import '../../features/reports/presentation/reports_screen.dart';
 import '../../features/users/presentation/user_management_screen.dart';
@@ -78,13 +77,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.cart,
         builder: (context, state) => const CartScreen(),
-      ),
-      GoRoute(
-        path: RoutePaths.paymentStatus,
-        builder: (context, state) => PaymentStatusScreen(
-          saleId: state.pathParameters['saleId']!,
-          checkoutUrl: state.extra as String?,
-        ),
       ),
       GoRoute(
         path: RoutePaths.quoteDetail,

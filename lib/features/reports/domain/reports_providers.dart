@@ -35,11 +35,15 @@ final reportRangeProvider =
 
 (DateTime, DateTime) _boundsFor(ReportRangePreset preset) {
   final now = DateTime.now();
+  // .toUtc() here (not just at the RPC-call boundary) matters because
+  // revenueTrendProvider derives previousStart by subtracting further from
+  // this start -- doing the conversion once up front keeps every downstream
+  // bound UTC, rather than relying on each call site to convert correctly.
   final end = DateTime(
     now.year,
     now.month,
     now.day,
-  ).add(const Duration(days: 1));
+  ).add(const Duration(days: 1)).toUtc();
   final start = end.subtract(Duration(days: preset.days));
   return (start, end);
 }

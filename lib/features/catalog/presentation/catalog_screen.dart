@@ -297,9 +297,25 @@ class _FeaturedProductCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        priceFormat.format(product.price),
-                        style: textTheme.labelLarge,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            priceFormat.format(product.price),
+                            style: textTheme.labelLarge,
+                          ),
+                          if (product.milliliters != null) ...[
+                            const SizedBox(width: AuraSpacing.unit / 2),
+                            Text(
+                              '${product.milliliters} ml',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: AuraColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       _QuickAddButton(product: product),
                     ],
@@ -371,9 +387,24 @@ class _ProductCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: AuraSpacing.unit / 2),
-            Text(
-              priceFormat.format(product.price),
-              style: textTheme.labelLarge,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  priceFormat.format(product.price),
+                  style: textTheme.labelLarge,
+                ),
+                if (product.milliliters != null) ...[
+                  const SizedBox(width: AuraSpacing.unit / 2),
+                  Text(
+                    '${product.milliliters} ml',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AuraColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
             ),
             if (!product.inStock)
               Text(

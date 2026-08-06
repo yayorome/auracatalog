@@ -80,9 +80,24 @@ class ProductDetailScreen extends ConsumerWidget {
                           ),
                         Text(product.name, style: textTheme.displayLarge),
                         const SizedBox(height: AuraSpacing.unit),
-                        Text(
-                          priceFormat.format(product.price),
-                          style: textTheme.headlineMedium,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              priceFormat.format(product.price),
+                              style: textTheme.headlineMedium,
+                            ),
+                            if (product.milliliters != null) ...[
+                              const SizedBox(width: AuraSpacing.unit),
+                              Text(
+                                '${product.milliliters} ml',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: AuraColors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: AuraSpacing.unit * 2),
                         if (product.description != null)

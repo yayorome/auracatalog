@@ -14,6 +14,7 @@ class Product {
     required this.fragranceNotes,
     required this.isActive,
     required this.imageUrl,
+    this.milliliters,
   });
 
   factory Product.fromRow(Map<String, dynamic> row, {String? imageUrl}) {
@@ -32,6 +33,7 @@ class Product {
           const [],
       isActive: row['is_active'] as bool,
       imageUrl: imageUrl,
+      milliliters: row['milliliters'] as int?,
     );
   }
 
@@ -47,6 +49,7 @@ class Product {
   final List<String> fragranceNotes;
   final bool isActive;
   final String? imageUrl;
+  final int? milliliters;
 
   bool get inStock => stockQuantity > 0;
 }

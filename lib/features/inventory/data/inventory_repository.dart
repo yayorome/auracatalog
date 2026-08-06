@@ -24,6 +24,7 @@ class InventoryRepository {
     required int stockQuantity,
     required String? category,
     required List<String> fragranceNotes,
+    required int? milliliters,
   }) async {
     final row = await _client
         .from('products')
@@ -37,6 +38,7 @@ class InventoryRepository {
           'stock_quantity': stockQuantity,
           'category': category,
           'fragrance_notes': fragranceNotes,
+          'milliliters': milliliters,
         })
         .select('id')
         .single();
@@ -54,6 +56,7 @@ class InventoryRepository {
     required int stockQuantity,
     required String? category,
     required List<String> fragranceNotes,
+    required int? milliliters,
   }) async {
     await _client
         .from('products')
@@ -67,6 +70,7 @@ class InventoryRepository {
           'stock_quantity': stockQuantity,
           'category': category,
           'fragrance_notes': fragranceNotes,
+          'milliliters': milliliters,
         })
         .eq('id', productId);
   }

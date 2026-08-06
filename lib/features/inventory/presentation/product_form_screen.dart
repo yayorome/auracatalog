@@ -35,6 +35,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   final _skuController = TextEditingController();
   final _priceController = TextEditingController();
   final _stockController = TextEditingController(text: '0');
+  final _millilitersController = TextEditingController();
   final _categoryController = TextEditingController();
   final _notesController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -55,6 +56,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _skuController.dispose();
     _priceController.dispose();
     _stockController.dispose();
+    _millilitersController.dispose();
     _categoryController.dispose();
     _notesController.dispose();
     _descriptionController.dispose();
@@ -69,6 +71,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _skuController.text = product.sku ?? '';
     _priceController.text = product.price.toString();
     _stockController.text = product.stockQuantity.toString();
+    _millilitersController.text = product.milliliters?.toString() ?? '';
     _categoryController.text = product.category ?? '';
     _notesController.text = product.fragranceNotes.join(', ');
     _descriptionController.text = product.description ?? '';
@@ -119,6 +122,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final repository = ref.read(inventoryRepositoryProvider);
       final price = double.parse(_priceController.text);
       final stock = int.parse(_stockController.text);
+      final milliliters = _millilitersController.text.trim().isEmpty
+          ? null
+          : int.tryParse(_millilitersController.text.trim());
 
       String productId;
       if (_isEditing) {
@@ -142,6 +148,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ? null
               : _categoryController.text.trim(),
           fragranceNotes: _parseNotes(),
+          milliliters: milliliters,
         );
       } else {
         productId = await repository.createProduct(
@@ -162,6 +169,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ? null
               : _categoryController.text.trim(),
           fragranceNotes: _parseNotes(),
+          milliliters: milliliters,
         );
       }
 
@@ -346,11 +354,27 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           ],
                         ),
                         const SizedBox(height: AuraSpacing.unit * 2),
-                        TextFormField(
-                          controller: _categoryController,
-                          decoration: const InputDecoration(
-                            labelText: 'Categoría',
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _millilitersController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Mililitros',
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: AuraSpacing.unit * 2),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _categoryController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Categoría',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: AuraSpacing.unit * 2),
                         TextFormField(

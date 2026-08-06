@@ -28,7 +28,16 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
   Uint8List? _pdfBytes;
   bool _isGenerating = false;
   bool _isSharingWhatsApp = false;
+  bool _isConverting = false;
   String? _errorMessage;
+
+  /// Locale-independent dd/mm/yyyy -- avoids depending on
+  /// `initializeDateFormatting()`, which nothing in this app calls, so a
+  /// locale-aware `DateFormat.yMMMd('es_MX')` would throw at runtime.
+  String _formatDate(DateTime date) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(date.day)}/${two(date.month)}/${date.year}';
+  }
 
   Future<Uint8List> _buildBytes(Quote quote) {
     return DocumentPdfBuilder.build(
@@ -97,6 +106,34 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
     }
   }
 
+  Future<void> _convertToSale(Quote quote) async {
+    setState(() {
+      _isConverting = true;
+      _errorMessage = null;
+    });
+    try {
+      await ref.read(quotesRepositoryProvider).convertToSale(quote.id);
+      ref.invalidate(quoteProvider(quote.id));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cotización convertida a venta.')),
+        );
+      }
+    } on Object catch (e) {
+      final text = e.toString();
+      final message = text.contains('insufficient_stock')
+          ? 'No hay suficiente stock de uno de estos productos.'
+          : text.contains('quote_expired')
+          ? 'La cotización expiró.'
+          : text.contains('quote_not_convertible')
+          ? 'Esta cotización ya no puede convertirse.'
+          : 'No se pudo convertir la cotización: $e';
+      setState(() => _errorMessage = message);
+    } finally {
+      if (mounted) setState(() => _isConverting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final quoteAsync = ref.watch(quoteProvider(widget.quoteId));
@@ -111,6 +148,9 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
         data: (quote) {
           final priceFormat = NumberFormat.simpleCurrency(name: quote.currency);
           final hasPdf = _pdfBytes != null || quote.status != QuoteStatus.draft;
+          final isConverted = quote.status == QuoteStatus.converted;
+          final isExpired = quote.isExpired;
+          final isActionable = !isConverted && !isExpired;
           return ResponsivePage(
             maxWidth: 720,
             child: SingleChildScrollView(
@@ -125,6 +165,43 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                       Text(
                         'Para: ${quote.clientName}',
                         style: textTheme.bodyLarge,
+                      ),
+                    if (isConverted)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          top: AuraSpacing.unit / 2,
+                        ),
+                        child: Text(
+                          'Convertida a venta'
+                          '${quote.convertedSaleId != null ? ' (#${quote.convertedSaleId!.substring(0, 8)})' : ''}.',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AuraColors.tertiary,
+                          ),
+                        ),
+                      )
+                    else if (isExpired)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          top: AuraSpacing.unit / 2,
+                        ),
+                        child: Text(
+                          'Esta cotización expiró'
+                          '${quote.expiresAt != null ? ' el ${_formatDate(quote.expiresAt!)}' : ''}.',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AuraColors.error,
+                          ),
+                        ),
+                      )
+                    else if (quote.expiresAt != null)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          top: AuraSpacing.unit / 2,
+                        ),
+                        child: Text(
+                          'Válida hasta el '
+                          '${_formatDate(quote.expiresAt!)}.',
+                          style: textTheme.bodySmall,
+                        ),
                       ),
                     const SizedBox(height: AuraSpacing.unit * 2),
                     for (final item in quote.items)
@@ -168,45 +245,65 @@ class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: AuraSpacing.unit * 3),
-                    if (!hasPdf)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isGenerating
-                              ? null
-                              : () => _generateAndUpload(quote),
-                          child: _isGenerating
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AuraColors.onPrimary,
-                                  ),
-                                )
-                              : const Text('Generar PDF'),
+                    if (isActionable) ...[
+                      const SizedBox(height: AuraSpacing.unit * 3),
+                      if (!hasPdf)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isGenerating
+                                ? null
+                                : () => _generateAndUpload(quote),
+                            child: _isGenerating
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AuraColors.onPrimary,
+                                    ),
+                                  )
+                                : const Text('Generar PDF'),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isSharingWhatsApp
+                                ? null
+                                : () => _shareViaWhatsApp(quote),
+                            child: _isSharingWhatsApp
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AuraColors.onPrimary,
+                                    ),
+                                  )
+                                : const Text('Compartir por WhatsApp'),
+                          ),
                         ),
-                      )
-                    else
+                      const SizedBox(height: AuraSpacing.unit),
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isSharingWhatsApp
+                        child: OutlinedButton(
+                          onPressed: _isConverting
                               ? null
-                              : () => _shareViaWhatsApp(quote),
-                          child: _isSharingWhatsApp
+                              : () => _convertToSale(quote),
+                          child: _isConverting
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: AuraColors.onPrimary,
                                   ),
                                 )
-                              : const Text('Compartir por WhatsApp'),
+                              : const Text('Convertir a venta (efectivo)'),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),

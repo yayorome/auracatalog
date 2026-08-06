@@ -15,6 +15,11 @@ class QuotesRepository {
   final SupabaseClient _client;
   static const _bucket = 'documents';
 
+  /// How long a quoted price is honored -- past this, `isExpired` hides the
+  /// PDF/share/convert actions and `convert_quote_to_sale` rejects the
+  /// conversion server-side even if the client is bypassed.
+  static const _validityPeriod = Duration(days: 14);
+
   Future<String> createQuote({
     required String sellerId,
     required List<CartItem> items,
@@ -33,6 +38,7 @@ class QuotesRepository {
           'client_name': clientName,
           'client_email': clientEmail,
           'client_phone': clientPhone,
+          'expires_at': DateTime.now().add(_validityPeriod).toIso8601String(),
         })
         .select('id')
         .single();
@@ -60,6 +66,21 @@ class QuotesRepository {
         .eq('id', quoteId);
 
     return quoteId;
+  }
+
+  /// Converts a draft/sent, non-expired quote into a paid cash sale via the
+  /// `convert_quote_to_sale` RPC: it creates the sale + sale_items honoring
+  /// the quote's snapshotted prices, atomically decrements stock through the
+  /// same `mark_sale_paid` path every other sale uses, and only then marks
+  /// the quote `converted` -- all in one transaction, so a failure (e.g.
+  /// `insufficient_stock`) leaves the quote untouched rather than stuck in a
+  /// half-converted state. Returns the new sale's id.
+  Future<String> convertToSale(String quoteId) async {
+    final saleId = await _client.rpc(
+      'convert_quote_to_sale',
+      params: {'p_quote_id': quoteId},
+    );
+    return saleId as String;
   }
 
   Future<Quote> fetchQuote(String quoteId) async {

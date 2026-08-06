@@ -47,6 +47,8 @@ class Quote {
     required this.clientEmail,
     required this.clientPhone,
     required this.items,
+    required this.expiresAt,
+    required this.convertedSaleId,
   });
 
   factory Quote.fromRow(Map<String, dynamic> row, List<QuoteLineItem> items) {
@@ -59,6 +61,10 @@ class Quote {
       clientEmail: row['client_email'] as String?,
       clientPhone: row['client_phone'] as String?,
       items: items,
+      expiresAt: row['expires_at'] == null
+          ? null
+          : DateTime.parse(row['expires_at'] as String),
+      convertedSaleId: row['converted_sale_id'] as String?,
     );
   }
 
@@ -70,4 +76,15 @@ class Quote {
   final String? clientEmail;
   final String? clientPhone;
   final List<QuoteLineItem> items;
+  final DateTime? expiresAt;
+  final String? convertedSaleId;
+
+  /// Computed rather than a stored status transition -- there's no cron
+  /// infra in this project to flip `status` to `'expired'` on a schedule,
+  /// and deriving it from `expiresAt` on every read is always exactly
+  /// correct (no lag) instead of only as fresh as the last cron tick.
+  bool get isExpired =>
+      status != QuoteStatus.converted &&
+      expiresAt != null &&
+      expiresAt!.isBefore(DateTime.now());
 }

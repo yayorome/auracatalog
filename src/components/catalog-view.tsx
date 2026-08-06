@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -36,9 +37,16 @@ export function CatalogView({ products }: { products: Product[] }) {
 
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-6 md:px-16">
-      <header className="mb-6 text-center">
-        <h1 className="font-headline text-3xl font-normal text-aura-on-surface">
-          Aura Research Parfums
+      <header className="mb-6 flex justify-center">
+        <h1>
+          <Image
+            src="/logo.webp"
+            alt="Aura Research Parfums"
+            width={1143}
+            height={1136}
+            priority
+            className="h-20 w-auto sm:h-24"
+          />
         </h1>
       </header>
 

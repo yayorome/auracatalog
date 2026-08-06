@@ -17,12 +17,19 @@ class CatalogRepository {
     return _client.storage.from(_bucket).getPublicUrl(path);
   }
 
+  /// Ordered by `units_sold` descending (ties broken alphabetically) so
+  /// `CatalogScreen` can just take the first row of the (optionally
+  /// category-filtered) list as the featured/"destacado" product -- the
+  /// best seller, not whichever name happens to sort first.
   Future<List<Product>> fetchProducts() async {
     final rows = await _client
         .from('products')
         .select('*, product_images(storage_path, position)')
         .eq('is_active', true)
-        .order('name');
+        .order('units_sold', ascending: false)
+        // supabase's .order() defaults to ascending: false -- without this
+        // explicit true, the tiebreaker silently sorted Z-A instead of A-Z.
+        .order('name', ascending: true);
     return rows
         .map(
           (row) => Product.fromRow(

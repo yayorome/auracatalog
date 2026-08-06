@@ -14,6 +14,7 @@ class Product {
     required this.fragranceNotes,
     required this.isActive,
     required this.imageUrl,
+    required this.unitsSold,
     this.milliliters,
   });
 
@@ -33,6 +34,7 @@ class Product {
           const [],
       isActive: row['is_active'] as bool,
       imageUrl: imageUrl,
+      unitsSold: row['units_sold'] as int? ?? 0,
       milliliters: row['milliliters'] as int?,
     );
   }
@@ -49,6 +51,7 @@ class Product {
   final List<String> fragranceNotes;
   final bool isActive;
   final String? imageUrl;
+  final int unitsSold;
   final int? milliliters;
 
   bool get inStock => stockQuantity > 0;

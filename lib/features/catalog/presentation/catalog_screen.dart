@@ -92,6 +92,8 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                     .where((product) => product.category == _selectedCategory)
                     .toList();
 
+          // fetchProducts() already orders by units_sold desc, so the
+          // first (optionally category-filtered) row is the best seller.
           final featured = filtered.isNotEmpty ? filtered.first : null;
           final rest = filtered.length > 1 ? filtered.sublist(1) : const [];
 
@@ -269,11 +271,24 @@ class _FeaturedProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'DESTACADO',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: AuraColors.tertiary,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'DESTACADO',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: AuraColors.tertiary,
+                        ),
+                      ),
+                      if (product.unitsSold > 0) ...[
+                        const SizedBox(width: AuraSpacing.unit),
+                        Text(
+                          '${product.unitsSold} vendidos',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: AuraColors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: AuraSpacing.unit / 2),
                   Text(

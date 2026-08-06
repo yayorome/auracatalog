@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/* Aura Essence design tokens, ported from
+   lib/app/theme/aura_essence_tokens.dart in the Flutter app this replaces. */
+:root {
+  --color-aura-surface: #faf9f5;
+  --color-aura-surface-dim: #dadad6;
+  --color-aura-surface-container-lowest: #ffffff;
+  --color-aura-surface-container-low: #f4f4f0;
+  --color-aura-surface-container: #eeeeea;
+  --color-aura-surface-container-high: #e8e8e4;
+  --color-aura-surface-container-highest: #e3e3df;
+  --color-aura-on-surface: #1a1c1a;
+  --color-aura-on-surface-variant: #45474a;
+  --color-aura-outline: #76777b;
+  --color-aura-outline-variant: #c6c6ca;
+
+  --color-aura-primary: #000000;
+  --color-aura-on-primary: #ffffff;
+
+  /* Soft sage — the brand's "botanical/fresh" accent. */
+  --color-aura-tertiary: #8a9a8e;
+
+  --color-aura-error: #ba1a1a;
+
+  /* Glass-tile fill used over the background for the bento-grid layout. */
+  --color-aura-glass: rgb(255 255 255 / 60%);
+
+  --radius-aura-sm: 4px;
+  --radius-aura-base: 8px;
+  --radius-aura-md: 12px;
+  --radius-aura-lg: 16px;
+  --radius-aura-xl: 24px;
+}
+
+@theme inline {
+  --color-aura-surface: var(--color-aura-surface);
+  --color-aura-surface-dim: var(--color-aura-surface-dim);
+  --color-aura-surface-container-lowest: var(--color-aura-surface-container-lowest);
+  --color-aura-surface-container-low: var(--color-aura-surface-container-low);
+  --color-aura-surface-container: var(--color-aura-surface-container);
+  --color-aura-surface-container-high: var(--color-aura-surface-container-high);
+  --color-aura-surface-container-highest: var(--color-aura-surface-container-highest);
+  --color-aura-on-surface: var(--color-aura-on-surface);
+  --color-aura-on-surface-variant: var(--color-aura-on-surface-variant);
+  --color-aura-outline: var(--color-aura-outline);
+  --color-aura-outline-variant: var(--color-aura-outline-variant);
+  --color-aura-primary: var(--color-aura-primary);
+  --color-aura-on-primary: var(--color-aura-on-primary);
+  --color-aura-tertiary: var(--color-aura-tertiary);
+  --color-aura-error: var(--color-aura-error);
+  --color-aura-glass: var(--color-aura-glass);
+
+  --radius-aura-sm: var(--radius-aura-sm);
+  --radius-aura-base: var(--radius-aura-base);
+  --radius-aura-md: var(--radius-aura-md);
+  --radius-aura-lg: var(--radius-aura-lg);
+  --radius-aura-xl: var(--radius-aura-xl);
+
+  --font-headline: var(--font-libre-caslon-text);
+  --font-body: var(--font-hanken-grotesk);
+}
+
+body {
+  background: var(--color-aura-surface);
+  color: var(--color-aura-on-surface);
+  font-family: var(--font-body), sans-serif;
+}

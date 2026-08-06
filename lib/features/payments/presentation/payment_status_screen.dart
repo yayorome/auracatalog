@@ -1,23 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/route_paths.dart';
 import '../../../app/theme/aura_essence_tokens.dart';
 import '../../../core/widgets/bento_tile.dart';
 import '../../sales/domain/sales_providers.dart';
 
-/// Reached both from the cart (after opening the Mercado Pago checkout tab)
-/// and from Mercado Pago's own redirect (`back_urls` in
-/// create-payment-preference). Payment confirmation is async — the
-/// `mercadopago-webhook` Edge Function is what actually calls
-/// `mark_sale_paid`, on its own schedule after MP notifies it — so this
-/// screen just reflects whatever `saleStreamProvider` reports right now via
-/// Realtime, it doesn't poll or drive the transition itself.
+/// Reached from the cart right after a Mercado Pago sale is created
+/// (`checkoutUrl` passed via go_router `extra`, so the seller can copy/share
+/// it) and from Mercado Pago's own redirect once the client pays
+/// (`back_urls` in create-payment-preference; no `extra` in that case).
+/// Payment confirmation is async -- the `mercadopago-webhook` Edge Function
+/// is what actually calls `mark_sale_paid`, on its own schedule after MP
+/// notifies it -- so this screen just reflects whatever `saleStreamProvider`
+/// reports right now via Realtime, it doesn't poll or drive the transition
+/// itself.
 class PaymentStatusScreen extends ConsumerWidget {
-  const PaymentStatusScreen({super.key, required this.saleId});
+  const PaymentStatusScreen({super.key, required this.saleId, this.checkoutUrl});
 
   final String saleId;
+  final String? checkoutUrl;
+
+  Future<void> _copyLink(BuildContext context) async {
+    final url = checkoutUrl;
+    if (url == null) return;
+    await Clipboard.setData(ClipboardData(text: url));
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enlace copiado')));
+    }
+  }
+
+  Future<void> _shareViaWhatsApp(Map<String, dynamic>? sale) async {
+    final url = checkoutUrl;
+    if (url == null) return;
+    final message = Uri.encodeComponent(
+      'Aquí tienes tu enlace de pago de Aura Research Fragrance: $url',
+    );
+    final phone = (sale?['client_phone'] as String?)?.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+    final waUri = Uri.parse(
+      (phone == null || phone.isEmpty)
+          ? 'https://wa.me/?text=$message'
+          : 'https://wa.me/$phone?text=$message',
+    );
+    await launchUrl(waUri, webOnlyWindowName: '_blank');
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -38,11 +72,38 @@ class PaymentStatusScreen extends ConsumerWidget {
               error: (error, stackTrace) => Text('Error: $error'),
               data: (sale) {
                 final status = sale?['status'] as String?;
+                final showShareLink = checkoutUrl != null && status == 'pending_payment';
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _statusContent(status, textTheme),
+                    if (showShareLink) ...[
+                      const SizedBox(height: AuraSpacing.unit * 3),
+                      Text('Enlace de pago', style: textTheme.titleMedium),
+                      const SizedBox(height: AuraSpacing.unit),
+                      SelectableText(checkoutUrl!, style: textTheme.bodySmall),
+                      const SizedBox(height: AuraSpacing.unit * 2),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _copyLink(context),
+                              icon: const Icon(Icons.copy_outlined),
+                              label: const Text('Copiar'),
+                            ),
+                          ),
+                          const SizedBox(width: AuraSpacing.unit),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _shareViaWhatsApp(sale),
+                              icon: const Icon(Icons.chat_outlined),
+                              label: const Text('WhatsApp'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: AuraSpacing.unit * 3),
                     SizedBox(
                       width: double.infinity,

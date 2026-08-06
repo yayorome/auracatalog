@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../app/router/route_paths.dart';
@@ -84,10 +83,14 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             saleId: saleId,
             returnBaseUrl: AppReturnUrl.current(),
           );
-      await launchUrl(Uri.parse(checkoutUrl), webOnlyWindowName: '_blank');
       ref.read(cartProvider.notifier).clear();
       if (mounted) {
-        ref.read(goRouterProvider).push(RoutePaths.paymentStatusPath(saleId));
+        // Don't auto-launch the checkout URL here -- the seller shares it
+        // with the client (copy/WhatsApp) from PaymentStatusScreen instead,
+        // since the person paying is often not the person at this device.
+        ref
+            .read(goRouterProvider)
+            .push(RoutePaths.paymentStatusPath(saleId), extra: checkoutUrl);
       }
     } on Object catch (e) {
       setState(() => _errorMessage = 'No se pudo iniciar el pago: $e');
@@ -255,7 +258,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text('Pagar en línea (Mercado Pago)'),
+                                  : const Text(
+                                      'Generar enlace de pago (Mercado Pago)',
+                                    ),
                             ),
                           ),
                           const SizedBox(height: AuraSpacing.unit),

@@ -81,8 +81,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.paymentStatus,
-        builder: (context, state) =>
-            PaymentStatusScreen(saleId: state.pathParameters['saleId']!),
+        builder: (context, state) => PaymentStatusScreen(
+          saleId: state.pathParameters['saleId']!,
+          checkoutUrl: state.extra as String?,
+        ),
       ),
       GoRoute(
         path: RoutePaths.quoteDetail,

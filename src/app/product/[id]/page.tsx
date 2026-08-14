@@ -47,17 +47,6 @@ export default async function ProductDetailPage({
           {product.name}
         </h1>
 
-        <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-2xl text-aura-on-surface">
-            {formatPrice(product.price, product.currency)}
-          </span>
-          {product.milliliters != null && (
-            <span className="text-base text-aura-on-surface-variant">
-              {product.milliliters} ml
-            </span>
-          )}
-        </div>
-
         {product.description && (
           <p className="mt-4 text-base text-aura-on-surface">
             {product.description}
@@ -82,15 +71,39 @@ export default async function ProductDetailPage({
           </div>
         )}
 
-        <p
-          className={`mt-4 text-sm font-semibold ${
-            product.stockQuantity > 0
-              ? "text-aura-on-surface-variant"
-              : "text-aura-error"
-          }`}
-        >
-          {product.stockQuantity > 0 ? "Disponible" : "Agotado"}
-        </p>
+        {product.variants.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-medium tracking-wide text-aura-on-surface-variant">
+              PRESENTACIONES
+            </p>
+            <ul className="mt-2 divide-y divide-aura-outline-variant">
+              {product.variants.map((variant) => (
+                <li
+                  key={variant.id}
+                  className="flex items-center justify-between py-2"
+                >
+                  <span className="text-base text-aura-on-surface">
+                    {variant.milliliters} ml
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-base text-aura-on-surface">
+                      {formatPrice(variant.price, product.currency)}
+                    </span>
+                    <span
+                      className={`text-sm font-semibold ${
+                        variant.stockQuantity > 0
+                          ? "text-aura-on-surface-variant"
+                          : "text-aura-error"
+                      }`}
+                    >
+                      {variant.stockQuantity > 0 ? "Disponible" : "Agotado"}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       </main>
     </div>

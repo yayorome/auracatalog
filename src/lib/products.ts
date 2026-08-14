@@ -1,20 +1,25 @@
 import { supabase, supabaseUrl } from "./supabase";
 
+export interface ProductVariant {
+  id: string;
+  sku: string | null;
+  price: number;
+  stockQuantity: number;
+  milliliters: number;
+}
+
 export interface Product {
   id: string;
   name: string;
   description: string | null;
   brand: string | null;
-  sku: string | null;
-  price: number;
   currency: string;
-  stockQuantity: number;
   category: string | null;
   fragranceNotes: string[];
   isActive: boolean;
   imageUrl: string | null;
   unitsSold: number;
-  milliliters: number | null;
+  variants: ProductVariant[];
 }
 
 interface ProductImageRow {
@@ -22,21 +27,26 @@ interface ProductImageRow {
   position: number;
 }
 
+interface ProductVariantRow {
+  id: string;
+  sku: string | null;
+  price: number;
+  stock_quantity: number;
+  milliliters: number;
+}
+
 interface ProductRow {
   id: string;
   name: string;
   description: string | null;
   brand: string | null;
-  sku: string | null;
-  price: number;
   currency: string;
-  stock_quantity: number;
   category: string | null;
   fragrance_notes: string[] | null;
   is_active: boolean;
   units_sold: number | null;
-  milliliters: number | null;
   product_images: ProductImageRow[] | null;
+  product_variants: ProductVariantRow[] | null;
 }
 
 const PRODUCT_PHOTOS_BUCKET = "product-photos";
@@ -44,12 +54,25 @@ const PRODUCT_PHOTOS_BUCKET = "product-photos";
 // Explicit column list (rather than "*") so we don't pull columns this app
 // never reads off every request.
 const PRODUCT_COLUMNS =
-  "id, name, description, brand, sku, price, currency, stock_quantity, category, fragrance_notes, is_active, units_sold, milliliters, product_images(storage_path, position)";
+  "id, name, description, brand, currency, category, fragrance_notes, is_active, units_sold, product_images(storage_path, position), product_variants(id, sku, price, stock_quantity, milliliters)";
 
 function primaryImageUrl(images: ProductImageRow[] | null): string | null {
   if (!images || images.length === 0) return null;
   const sorted = [...images].sort((a, b) => a.position - b.position);
   return `${supabaseUrl}/storage/v1/object/public/${PRODUCT_PHOTOS_BUCKET}/${sorted[0].storage_path}`;
+}
+
+function toVariants(rows: ProductVariantRow[] | null): ProductVariant[] {
+  if (!rows) return [];
+  return [...rows]
+    .sort((a, b) => a.milliliters - b.milliliters)
+    .map((row) => ({
+      id: row.id,
+      sku: row.sku,
+      price: row.price,
+      stockQuantity: row.stock_quantity,
+      milliliters: row.milliliters,
+    }));
 }
 
 function toProduct(row: ProductRow): Product {
@@ -58,16 +81,13 @@ function toProduct(row: ProductRow): Product {
     name: row.name,
     description: row.description,
     brand: row.brand,
-    sku: row.sku,
-    price: row.price,
     currency: row.currency,
-    stockQuantity: row.stock_quantity,
     category: row.category,
     fragranceNotes: row.fragrance_notes ?? [],
     isActive: row.is_active,
     imageUrl: primaryImageUrl(row.product_images),
     unitsSold: row.units_sold ?? 0,
-    milliliters: row.milliliters,
+    variants: toVariants(row.product_variants),
   };
 }
 

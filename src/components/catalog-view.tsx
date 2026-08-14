@@ -141,7 +141,23 @@ function AuraGlow() {
   );
 }
 
+// The catalog has no cart/checkout, so a card only ever needs one
+// representative price: the cheapest active size, labeled "Desde" when a
+// product has more than one.
+function cheapestVariant(product: Product) {
+  if (product.variants.length === 0) return null;
+  const variant = product.variants.reduce((min, v) =>
+    v.price < min.price ? v : min
+  );
+  return { variant, hasMultiple: product.variants.length > 1 };
+}
+
+function inStock(product: Product): boolean {
+  return product.variants.some((v) => v.stockQuantity > 0);
+}
+
 function FeaturedProductCard({ product }: { product: Product }) {
+  const cheapest = cheapestVariant(product);
   return (
     <Link
       href={`/product/${product.id}`}
@@ -177,13 +193,20 @@ function FeaturedProductCard({ product }: { product: Product }) {
             </p>
           )}
           <div className="mt-2 flex items-baseline gap-1.5 sm:mt-4">
-            <span className="text-sm font-semibold text-aura-on-surface sm:text-xl">
-              {formatPrice(product.price, product.currency)}
-            </span>
-            {product.milliliters != null && (
-              <span className="text-xs text-aura-on-surface-variant sm:text-sm">
-                {product.milliliters} ml
-              </span>
+            {cheapest && (
+              <>
+                <span className="text-sm font-semibold text-aura-on-surface sm:text-xl">
+                  {cheapest.hasMultiple && (
+                    <span className="mr-1 text-xs font-normal text-aura-on-surface-variant sm:text-sm">
+                      Desde
+                    </span>
+                  )}
+                  {formatPrice(cheapest.variant.price, product.currency)}
+                </span>
+                <span className="text-xs text-aura-on-surface-variant sm:text-sm">
+                  {cheapest.variant.milliliters} ml
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -199,6 +222,7 @@ function ProductCard({
   product: Product;
   delayMs: number;
 }) {
+  const cheapest = cheapestVariant(product);
   return (
     <Link
       href={`/product/${product.id}`}
@@ -216,17 +240,22 @@ function ProductCard({
       <h3 className="mt-2 truncate text-base font-normal text-aura-on-surface">
         {product.name}
       </h3>
-      <div className="mt-0.5 flex items-baseline gap-1.5">
-        <span className="text-sm font-semibold text-aura-on-surface">
-          {formatPrice(product.price, product.currency)}
-        </span>
-        {product.milliliters != null && (
-          <span className="text-xs text-aura-on-surface-variant">
-            {product.milliliters} ml
+      {cheapest && (
+        <div className="mt-0.5 flex items-baseline gap-1.5">
+          <span className="text-sm font-semibold text-aura-on-surface">
+            {cheapest.hasMultiple && (
+              <span className="mr-1 text-xs font-normal text-aura-on-surface-variant">
+                Desde
+              </span>
+            )}
+            {formatPrice(cheapest.variant.price, product.currency)}
           </span>
-        )}
-      </div>
-      {!(product.stockQuantity > 0) && (
+          <span className="text-xs text-aura-on-surface-variant">
+            {cheapest.variant.milliliters} ml
+          </span>
+        </div>
+      )}
+      {!inStock(product) && (
         <span className="mt-0.5 text-xs font-medium text-aura-error">
           Agotado
         </span>

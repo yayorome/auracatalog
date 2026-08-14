@@ -84,6 +84,50 @@ body {
   animation: aura-fade-in-up 0.5s ease-out both;
 }
 
+@keyframes aura-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-banner-in {
+  animation: aura-banner-in 0.4s ease-out both;
+}
+
+@keyframes aura-banner-ping {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-banner-ping {
+  animation: aura-banner-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes aura-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: aura-marquee 22s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

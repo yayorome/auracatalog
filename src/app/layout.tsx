@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Hanken_Grotesk, Libre_Caslon_Text } from "next/font/google";
 import "./globals.css";
 import { SocialLinks } from "@/components/social-links";
+import { WhatsAppBanner } from "@/components/whatsapp-banner";
+import { fetchBannerMessage } from "@/lib/settings";
 
 const libreCaslonText = Libre_Caslon_Text({
   variable: "--font-libre-caslon-text",
@@ -19,15 +21,17 @@ export const metadata: Metadata = {
   description: "Catálogo de perfumes Aura Research Parfums.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: LayoutProps<"/">) {
+  const bannerMessage = await fetchBannerMessage();
   return (
     <html
       lang="es"
       className={`${libreCaslonText.variable} ${hankenGrotesk.variable}`}
     >
       <body className="min-h-screen antialiased font-body">
+        <WhatsAppBanner message={bannerMessage} />
         {children}
         <SocialLinks />
       </body>

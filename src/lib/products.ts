@@ -18,7 +18,6 @@ export interface Product {
   fragranceNotes: string[];
   isActive: boolean;
   imageUrl: string | null;
-  unitsSold: number;
   variants: ProductVariant[];
 }
 
@@ -44,7 +43,6 @@ interface ProductRow {
   category: string | null;
   fragrance_notes: string[] | null;
   is_active: boolean;
-  units_sold: number | null;
   product_images: ProductImageRow[] | null;
   product_variants: ProductVariantRow[] | null;
 }
@@ -54,7 +52,7 @@ const PRODUCT_PHOTOS_BUCKET = "product-photos";
 // Explicit column list (rather than "*") so we don't pull columns this app
 // never reads off every request.
 const PRODUCT_COLUMNS =
-  "id, name, description, brand, currency, category, fragrance_notes, is_active, units_sold, product_images(storage_path, position), product_variants(id, sku, price, stock_quantity, milliliters)";
+  "id, name, description, brand, currency, category, fragrance_notes, is_active, product_images(storage_path, position), product_variants(id, sku, price, stock_quantity, milliliters)";
 
 function primaryImageUrl(images: ProductImageRow[] | null): string | null {
   if (!images || images.length === 0) return null;
@@ -86,20 +84,15 @@ function toProduct(row: ProductRow): Product {
     fragranceNotes: row.fragrance_notes ?? [],
     isActive: row.is_active,
     imageUrl: primaryImageUrl(row.product_images),
-    unitsSold: row.units_sold ?? 0,
     variants: toVariants(row.product_variants),
   };
 }
 
-// Ordered by units_sold desc (ties broken alphabetically) so the catalog
-// page can treat the first (optionally category-filtered) row as the
-// featured/"best seller" product.
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("products")
     .select(PRODUCT_COLUMNS)
     .eq("is_active", true)
-    .order("units_sold", { ascending: false })
     .order("name", { ascending: true });
 
   if (error) throw new Error(error.message);

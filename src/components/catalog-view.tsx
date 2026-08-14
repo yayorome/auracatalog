@@ -30,11 +30,6 @@ export function CatalogView({ products }: { products: Product[] }) {
     [products, selectedCategory]
   );
 
-  // fetchProducts() already orders by units_sold desc, so the first
-  // (optionally category-filtered) row is the best seller.
-  const featured = filtered[0] ?? null;
-  const rest = filtered.length > 1 ? filtered.slice(1) : [];
-
   return (
     <div className="mx-auto max-w-[1400px] px-5 py-6 md:px-16">
       <header className="mb-6 flex justify-center">
@@ -75,14 +70,8 @@ export function CatalogView({ products }: { products: Product[] }) {
               </div>
             )}
 
-            {featured && (
-              <div className="mb-3">
-                <FeaturedProductCard product={featured} />
-              </div>
-            )}
-
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {rest.map((product, index) => (
+              {filtered.map((product, index) => (
                 <ProductCard
                   key={product.id}
                   product={product}
@@ -121,26 +110,6 @@ function CategoryChip({
   );
 }
 
-/**
- * The one deliberate signature moment on the page: a literal "aura" — a
- * halo of concentric rings bleeding off the card edge — behind the best
- * seller, tying back to the brand name. Nowhere else on the page repeats
- * this motif, so it stays a single accent rather than decoration.
- */
-function AuraGlow() {
-  return (
-    <svg
-      viewBox="0 0 200 200"
-      aria-hidden
-      className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 text-aura-tertiary opacity-[0.14] sm:h-72 sm:w-72"
-    >
-      <circle cx="100" cy="100" r="99" fill="none" stroke="currentColor" strokeWidth="1" />
-      <circle cx="100" cy="100" r="72" fill="none" stroke="currentColor" strokeWidth="1" />
-      <circle cx="100" cy="100" r="45" fill="none" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  );
-}
-
 // The catalog has no cart/checkout, so a card only ever needs one
 // representative price: the cheapest active size, labeled "Desde" when a
 // product has more than one.
@@ -154,65 +123,6 @@ function cheapestVariant(product: Product) {
 
 function inStock(product: Product): boolean {
   return product.variants.some((v) => v.stockQuantity > 0);
-}
-
-function FeaturedProductCard({ product }: { product: Product }) {
-  const cheapest = cheapestVariant(product);
-  return (
-    <Link
-      href={`/product/${product.id}`}
-      className="animate-fade-in-up group relative block overflow-hidden rounded-aura-lg border border-aura-outline-variant bg-aura-surface-container-lowest p-4 transition-shadow hover:shadow-md sm:p-6"
-    >
-      <AuraGlow />
-      <div className="relative flex items-start gap-4 sm:gap-6">
-        <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden rounded-aura-md sm:h-[168px] sm:w-[168px]">
-          <ProductImage
-            imageUrl={product.imageUrl}
-            alt={product.name}
-            sizes="168px"
-            zoomOnHover
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium tracking-wide text-aura-tertiary">
-              DESTACADO
-            </span>
-            {product.unitsSold > 0 && (
-              <span className="text-xs text-aura-on-surface-variant">
-                {product.unitsSold} vendidos
-              </span>
-            )}
-          </div>
-          <h2 className="mt-1 truncate font-headline text-2xl tracking-tight text-aura-on-surface sm:text-4xl">
-            {product.name}
-          </h2>
-          {product.description && (
-            <p className="mt-1 line-clamp-2 text-base text-aura-on-surface-variant">
-              {product.description}
-            </p>
-          )}
-          <div className="mt-2 flex items-baseline gap-1.5 sm:mt-4">
-            {cheapest && (
-              <>
-                <span className="text-sm font-semibold text-aura-on-surface sm:text-xl">
-                  {cheapest.hasMultiple && (
-                    <span className="mr-1 text-xs font-normal text-aura-on-surface-variant sm:text-sm">
-                      Desde
-                    </span>
-                  )}
-                  {formatPrice(cheapest.variant.price, product.currency)}
-                </span>
-                <span className="text-xs text-aura-on-surface-variant sm:text-sm">
-                  {cheapest.variant.milliliters} ml
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
 }
 
 function ProductCard({

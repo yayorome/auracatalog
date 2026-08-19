@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AddToCart } from "@/components/add-to-cart";
+import { BackLink } from "@/components/back-link";
 import { ProductImage } from "@/components/product-image";
 import { formatPrice } from "@/lib/format";
 import { fetchProduct } from "@/lib/products";
@@ -18,13 +19,7 @@ export default async function ProductDetailPage({
 
   return (
     <div className="mx-auto max-w-[720px] px-5 py-6 md:px-16">
-      <Link
-        href="/"
-        aria-label="Volver al catálogo"
-        className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full text-aura-on-surface hover:bg-aura-surface-container"
-      >
-        <BackArrowIcon className="h-5 w-5" />
-      </Link>
+      <BackLink href="/" label="Volver al catálogo" />
 
       <main>
       {product.imageUrl && (
@@ -104,26 +99,10 @@ export default async function ProductDetailPage({
             </ul>
           </div>
         )}
+
+        <AddToCart product={product} />
       </div>
       </main>
     </div>
-  );
-}
-
-function BackArrowIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
   );
 }

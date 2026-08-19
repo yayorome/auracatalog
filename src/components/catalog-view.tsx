@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { formatPrice } from "@/lib/format";
-import type { Product } from "@/lib/products";
+import type { Product, ProductVariant } from "@/lib/products";
 import { ProductImage } from "@/components/product-image";
+import { useCart } from "@/lib/cart-context";
 
 export function CatalogView({ products }: { products: Product[] }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
@@ -125,6 +126,15 @@ function inStock(product: Product): boolean {
   return product.variants.some((v) => v.stockQuantity > 0);
 }
 
+// Quick-add from the grid has no size picker, so it adds the cheapest
+// in-stock size — a product entirely out of stock has none, so the button
+// is hidden rather than shown disabled.
+function cheapestInStockVariant(product: Product): ProductVariant | null {
+  const inStockVariants = product.variants.filter((v) => v.stockQuantity > 0);
+  if (inStockVariants.length === 0) return null;
+  return inStockVariants.reduce((min, v) => (v.price < min.price ? v : min));
+}
+
 function ProductCard({
   product,
   delayMs,
@@ -133,6 +143,28 @@ function ProductCard({
   delayMs: number;
 }) {
   const cheapest = cheapestVariant(product);
+  const quickAddVariant = cheapestInStockVariant(product);
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+
+  function handleQuickAdd(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!quickAddVariant) return;
+    addItem({
+      variantId: quickAddVariant.id,
+      productId: product.id,
+      productName: product.name,
+      brand: product.brand,
+      milliliters: quickAddVariant.milliliters,
+      price: quickAddVariant.price,
+      currency: product.currency,
+      imageUrl: product.imageUrl,
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
+  }
+
   return (
     <Link
       href={`/product/${product.id}`}
@@ -150,26 +182,83 @@ function ProductCard({
       <h3 className="mt-2 truncate text-base font-normal text-aura-on-surface">
         {product.name}
       </h3>
-      {cheapest && (
-        <div className="mt-0.5 flex items-baseline gap-1.5">
-          <span className="text-sm font-semibold text-aura-on-surface">
-            {cheapest.hasMultiple && (
-              <span className="mr-1 text-xs font-normal text-aura-on-surface-variant">
-                Desde
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <div>
+          {cheapest && (
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-sm font-semibold text-aura-on-surface">
+                {cheapest.hasMultiple && (
+                  <span className="mr-1 text-xs font-normal text-aura-on-surface-variant">
+                    Desde
+                  </span>
+                )}
+                {formatPrice(cheapest.variant.price, product.currency)}
               </span>
-            )}
-            {formatPrice(cheapest.variant.price, product.currency)}
-          </span>
-          <span className="text-xs text-aura-on-surface-variant">
-            {cheapest.variant.milliliters} ml
-          </span>
+              <span className="text-xs text-aura-on-surface-variant">
+                {cheapest.variant.milliliters} ml
+              </span>
+            </div>
+          )}
+          {!inStock(product) && (
+            <span className="text-xs font-medium text-aura-error">
+              Agotado
+            </span>
+          )}
         </div>
-      )}
-      {!inStock(product) && (
-        <span className="mt-0.5 text-xs font-medium text-aura-error">
-          Agotado
-        </span>
-      )}
+
+        {quickAddVariant && (
+          <button
+            type="button"
+            onClick={handleQuickAdd}
+            aria-label={`Agregar ${product.name} al carrito`}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+              added
+                ? "bg-aura-tertiary text-aura-on-primary"
+                : "bg-aura-primary text-aura-on-primary hover:bg-aura-on-surface"
+            }`}
+          >
+            {added ? (
+              <CheckIcon className="h-4 w-4" />
+            ) : (
+              <PlusIcon className="h-4 w-4" />
+            )}
+          </button>
+        )}
+      </div>
     </Link>
+  );
+}
+
+function PlusIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }

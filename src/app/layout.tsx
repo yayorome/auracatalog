@@ -3,7 +3,10 @@ import { Hanken_Grotesk, Libre_Caslon_Text } from "next/font/google";
 import "./globals.css";
 import { SocialLinks } from "@/components/social-links";
 import { WhatsAppBanner } from "@/components/whatsapp-banner";
+import { SiteHeader } from "@/components/site-header";
+import { CartProvider } from "@/lib/cart-context";
 import { fetchBannerMessage } from "@/lib/settings";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const libreCaslonText = Libre_Caslon_Text({
   variable: "--font-libre-caslon-text",
@@ -25,6 +28,11 @@ export default async function RootLayout({
   children,
 }: LayoutProps<"/">) {
   const bannerMessage = await fetchBannerMessage();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html
       lang="es"
@@ -32,7 +40,10 @@ export default async function RootLayout({
     >
       <body className="min-h-screen antialiased font-body">
         <WhatsAppBanner message={bannerMessage} />
-        {children}
+        <CartProvider>
+          <SiteHeader isLoggedIn={Boolean(user)} />
+          {children}
+        </CartProvider>
         <SocialLinks />
       </body>
     </html>

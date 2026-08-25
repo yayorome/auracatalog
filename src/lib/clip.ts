@@ -83,5 +83,11 @@ export async function getPaymentRequest(
   return res.json();
 }
 
-/** Statuses that mean the customer completed and paid — everything else keeps the order pending. */
-export const CLIP_PAID_STATUSES = new Set(["COMPLETED"]);
+/**
+ * Statuses that mean the customer completed and paid — everything else keeps
+ * the order pending. This checks against GET /v2/checkout/{id}'s `status`
+ * field (CHECKOUT_-prefixed per Clip's docs), not the raw webhook payload's
+ * unprefixed `resource_status` — see the comment in the webhook route for
+ * why we re-fetch instead of trusting the callback body.
+ */
+export const CLIP_PAID_STATUSES = new Set(["CHECKOUT_COMPLETED"]);

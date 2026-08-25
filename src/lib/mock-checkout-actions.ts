@@ -12,7 +12,7 @@ export async function simulateClipPaymentAction(formData: FormData) {
   const outcome = String(formData.get("outcome") ?? "");
   if (!saleId) redirect("/");
 
-  const status = outcome === "approve" ? "COMPLETED" : "CANCELLED";
+  const status = outcome === "approve" ? "CHECKOUT_COMPLETED" : "CHECKOUT_CANCELLED";
   await fulfillClipPayment(saleId, status, { mock: true, status });
 
   redirect(

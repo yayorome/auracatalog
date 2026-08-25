@@ -41,6 +41,18 @@ function siteUrl(): string {
   return "http://localhost:3000";
 }
 
+// Preview deployments sit behind Vercel Authentication even on a verified
+// custom domain aliased to a branch (only the Production target's domain is
+// exempted) — Clip's webhook POST would otherwise hit that login wall
+// instead of our route handler. Appending Vercel's own Protection Bypass
+// for Automation secret lets that one request through regardless of
+// environment; it's a no-op on Production, where nothing is protected.
+function webhookUrl(base: string): string {
+  const url = `${base}/api/webhooks/clip`;
+  const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  return bypassSecret ? `${url}?x-vercel-protection-bypass=${bypassSecret}` : url;
+}
+
 export async function createCheckoutAction(
   _prevState: CheckoutActionState,
   formData: FormData
@@ -230,7 +242,7 @@ export async function createCheckoutAction(
       successUrl: `${base}/checkout/success?sale=${sale.id}`,
       errorUrl: `${base}/checkout/error?sale=${sale.id}`,
       defaultUrl: base,
-      webhookUrl: `${base}/api/webhooks/clip`,
+      webhookUrl: webhookUrl(base),
       customer: { name, email: client.email ?? user.email ?? "" },
     });
 

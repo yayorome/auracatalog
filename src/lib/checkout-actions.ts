@@ -25,6 +25,16 @@ interface CartLine {
 // for local dev. Without this, Clip was being sent redirection/webhook URLs
 // pointing at localhost from preview deployments, which Clip's API
 // rejected with a 500.
+// Deletes a sale (and its children, FK-safe order) that was staged for
+// checkout but never made it to a real payment attempt — used whenever a
+// step after sale creation fails, so a broken checkout doesn't leave a
+// zombie pending_payment/$0 order in the customer's order history.
+async function discardAbandonedSale(saleId: string) {
+  await supabaseAdmin.from("payments").delete().eq("sale_id", saleId);
+  await supabaseAdmin.from("sale_items").delete().eq("sale_id", saleId);
+  await supabaseAdmin.from("sales").delete().eq("id", saleId);
+}
+
 function siteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
@@ -168,6 +178,7 @@ export async function createCheckoutAction(
     cartLines.map((line) => ({ sale_id: sale.id, variant_id: line.variantId, quantity: line.quantity }))
   );
   if (itemsError) {
+    await discardAbandonedSale(sale.id);
     return { error: "No se pudo registrar tu pedido. Intenta de nuevo." };
   }
 
@@ -189,6 +200,7 @@ export async function createCheckoutAction(
     p_total: total,
   });
   if (totalsError) {
+    await discardAbandonedSale(sale.id);
     return { error: "No se pudo calcular el total de tu pedido. Intenta de nuevo." };
   }
   await supabaseAdmin.from("sales").update({ shipping_cost: shippingCost }).eq("id", sale.id);
@@ -230,6 +242,7 @@ export async function createCheckoutAction(
     checkoutUrl = link.payment_request_url;
   } catch (err) {
     console.error("Clip createPaymentLink failed", err);
+    await discardAbandonedSale(sale.id);
     return { error: "No se pudo iniciar el pago. Intenta de nuevo en unos minutos." };
   }
 

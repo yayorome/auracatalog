@@ -9,9 +9,18 @@ import { fulfillClipPayment } from "@/lib/checkout-fulfillment";
 // payload's `resource_status` outright, we re-fetch the payment request
 // from Clip's API by id and act on that authoritative status.
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null);
-  const paymentRequestId = body?.payment_request_id as string | undefined;
+  const rawBody = await request.text();
+  let body: Record<string, unknown> | null = null;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    // fall through — logged below via rawBody
+  }
+  const paymentRequestId = (body?.payment_request_id ?? body?.paymentRequestId) as
+    | string
+    | undefined;
   if (!paymentRequestId) {
+    console.error("Clip webhook missing payment_request_id — raw body:", rawBody);
     return NextResponse.json({ error: "missing payment_request_id" }, { status: 400 });
   }
 

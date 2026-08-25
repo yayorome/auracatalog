@@ -218,7 +218,8 @@ export async function createCheckoutAction(
       .eq("id", paymentRow!.id);
 
     checkoutUrl = link.payment_request_url;
-  } catch {
+  } catch (err) {
+    console.error("Clip createPaymentLink failed", err);
     return { error: "No se pudo iniciar el pago. Intenta de nuevo en unos minutos." };
   }
 

@@ -64,7 +64,7 @@ export async function createCheckoutAction(
   // colonia that doesn't actually belong to it.
   const postalCodeInfo = await lookupPostalCode(supabaseAdmin, postalCode);
   if (!postalCodeInfo) {
-    return { error: "El código postal no existe según el catálogo de SEPOMEX." };
+    return { error: "El código postal no existe." };
   }
   if (neighborhood && !isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
     return { error: "La colonia no corresponde a ese código postal." };

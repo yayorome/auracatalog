@@ -27,7 +27,7 @@ export function RegisterForm({ next }: { next: string }) {
     if (!info) {
       setColonias([]);
       setNeighborhood("");
-      setPostalCodeHint("Código postal no válido según SEPOMEX.");
+      setPostalCodeHint("Código postal no encontrado.");
       return;
     }
     setPostalCodeHint(null);

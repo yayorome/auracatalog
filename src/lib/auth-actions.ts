@@ -49,7 +49,7 @@ export async function registerAction(
   if (postalCode) {
     const postalCodeInfo = await lookupPostalCode(supabase, postalCode);
     if (!postalCodeInfo) {
-      return { error: "El código postal no existe según el catálogo de SEPOMEX." };
+      return { error: "El código postal no existe." };
     }
     if (neighborhood && !isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
       return { error: "La colonia no corresponde a ese código postal." };

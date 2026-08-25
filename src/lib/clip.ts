@@ -42,27 +42,37 @@ function authHeader(): string {
 export async function createPaymentLink(
   req: ClipPaymentRequest
 ): Promise<ClipPaymentLinkResponse> {
+  const payload = {
+    amount: req.amount,
+    currency: req.currency,
+    purchase_description: req.purchaseDescription,
+    redirection_url: {
+      success: req.successUrl,
+      error: req.errorUrl,
+      default: req.defaultUrl,
+    },
+    webhook_url: req.webhookUrl,
+    metadata: {
+      external_reference: req.externalReference,
+      customer_info: { name: req.customer.name, email: req.customer.email },
+    },
+  };
+  // Never logs the token itself — just enough to catch a stray newline/space
+  // from how CLIP_API_KEY was copied in, which a base64 auth header would
+  // otherwise fail on silently server-side.
+  const token = process.env.CLIP_API_KEY ?? "";
+  console.log("Clip createPaymentLink payload", payload, {
+    tokenLength: token.length,
+    tokenHasWhitespace: /\s/.test(token),
+  });
+
   const res = await fetch(`${CLIP_API_BASE}/v2/checkout`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: authHeader(),
     },
-    body: JSON.stringify({
-      amount: req.amount,
-      currency: req.currency,
-      purchase_description: req.purchaseDescription,
-      redirection_url: {
-        success: req.successUrl,
-        error: req.errorUrl,
-        default: req.defaultUrl,
-      },
-      webhook_url: req.webhookUrl,
-      metadata: {
-        external_reference: req.externalReference,
-        customer_info: { name: req.customer.name, email: req.customer.email },
-      },
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {

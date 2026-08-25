@@ -17,8 +17,18 @@ interface CartLine {
   quantity: number;
 }
 
+// NEXT_PUBLIC_SITE_URL is meant to pin the stable production custom domain,
+// so it wins when explicitly set. On a Vercel preview deployment it's
+// normally left unset (each preview gets its own unique URL anyway), so
+// fall back to Vercel's own VERCEL_URL system env var (set automatically on
+// every preview/production build) before finally falling back to localhost
+// for local dev. Without this, Clip was being sent redirection/webhook URLs
+// pointing at localhost from preview deployments, which Clip's API
+// rejected with a 500.
 function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
 }
 
 export async function createCheckoutAction(

@@ -5,8 +5,12 @@ import { getPaymentRequest } from "@/lib/clip";
 import { fulfillClipPayment } from "@/lib/checkout-fulfillment";
 
 // Clip's webhook docs (https://developer.clip.mx/reference/checkout-webhook)
-// don't document a request-signing scheme, so instead of trusting this
-// payload's `resource_status` outright, we re-fetch the payment request
+// describe a richer payload (payment_request_id, resource_status, etc.) than
+// what Clip actually sends in practice — the real body observed in
+// production is just {"event_type":"INSERT"|"UPDATE","id":"<payment_request_id>",
+// "origin":"checkout-api"}, a bare change notification with the payment
+// request id under `id`. That fits our design either way: we never trust a
+// status embedded in the callback body, so we re-fetch the payment request
 // from Clip's API by id and act on that authoritative status.
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
@@ -16,7 +20,7 @@ export async function POST(request: NextRequest) {
   } catch {
     // fall through — logged below via rawBody
   }
-  const paymentRequestId = (body?.payment_request_id ?? body?.paymentRequestId) as
+  const paymentRequestId = (body?.id ?? body?.payment_request_id ?? body?.paymentRequestId) as
     | string
     | undefined;
   if (!paymentRequestId) {

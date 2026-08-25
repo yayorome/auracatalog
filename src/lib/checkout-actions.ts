@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createPaymentLink } from "@/lib/clip";
 import { computeShippingCost } from "@/lib/shipping";
+import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
 
 export interface CheckoutActionState {
   error: string | null;
@@ -56,6 +57,17 @@ export async function createCheckoutAction(
 
   if (!name || !street || !postalCode) {
     return { error: "Completa tu nombre y dirección de envío." };
+  }
+
+  // Cross-check against the SEPOMEX catalog (scripts/import-postal-codes.mjs)
+  // so orders can't be placed against a nonexistent postal code or a
+  // colonia that doesn't actually belong to it.
+  const postalCodeInfo = await lookupPostalCode(supabaseAdmin, postalCode);
+  if (!postalCodeInfo) {
+    return { error: "El código postal no existe según el catálogo de SEPOMEX." };
+  }
+  if (neighborhood && !isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
+    return { error: "La colonia no corresponde a ese código postal." };
   }
 
   // The `clients` row was created by the handle_new_user() trigger at

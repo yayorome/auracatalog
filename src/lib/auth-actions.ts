@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
 
 export interface AuthActionState {
   error: string | null;
@@ -42,6 +43,19 @@ export async function registerAction(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  // Shipping address is optional at registration, but if a postal code was
+  // entered it still has to be a real one per the SEPOMEX catalog.
+  if (postalCode) {
+    const postalCodeInfo = await lookupPostalCode(supabase, postalCode);
+    if (!postalCodeInfo) {
+      return { error: "El código postal no existe según el catálogo de SEPOMEX." };
+    }
+    if (neighborhood && !isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
+      return { error: "La colonia no corresponde a ese código postal." };
+    }
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

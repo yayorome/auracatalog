@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { CheckoutForm } from "@/components/checkout-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { lookupPostalCode } from "@/lib/postal-code";
 
 export default async function CheckoutPage() {
   const supabase = await createSupabaseServerClient();
@@ -18,12 +19,16 @@ export default async function CheckoutPage() {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  const postalCodeInfo = client?.postal_code
+    ? await lookupPostalCode(supabase, client.postal_code)
+    : null;
+
   return (
     <div className="mx-auto max-w-[640px] px-5 py-6 md:px-16">
       <h1 className="mb-6 font-headline text-3xl text-aura-on-surface">
         Pagar
       </h1>
-      <CheckoutForm client={client} />
+      <CheckoutForm client={client} initialColonias={postalCodeInfo?.colonias ?? []} />
     </div>
   );
 }

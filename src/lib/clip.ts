@@ -101,3 +101,19 @@ export async function getPaymentRequest(
  * why we re-fetch instead of trusting the callback body.
  */
 export const CLIP_PAID_STATUSES = new Set(["CHECKOUT_COMPLETED"]);
+
+/**
+ * Statuses that mean the checkout link is definitively dead and will never
+ * pay — anything NOT in this set and NOT in CLIP_PAID_STATUSES (e.g.
+ * CHECKOUT_CREATED, CHECKOUT_PENDING) is still in flight, not a rejection.
+ * Confusing "not paid yet" with "rejected" mattered here specifically
+ * because fulfillClipPayment() only acts once per payment (payment.status
+ * must still be "pending") — the webhook fires on link creation
+ * (CHECKOUT_CREATED) before the customer has even seen the checkout page,
+ * so treating every non-COMPLETED status as final would lock out the real
+ * completion webhook that arrives later for the same payment.
+ */
+export const CLIP_TERMINAL_REJECTED_STATUSES = new Set([
+  "CHECKOUT_CANCELLED",
+  "CHECKOUT_EXPIRED",
+]);

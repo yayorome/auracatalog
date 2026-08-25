@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { CLIP_PAID_STATUSES } from "@/lib/clip";
+import { CLIP_PAID_STATUSES, CLIP_TERMINAL_REJECTED_STATUSES } from "@/lib/clip";
 import { sendOrderReceiptEmail } from "@/lib/email";
 
 /**
@@ -22,6 +22,13 @@ export async function fulfillClipPayment(
   if (payment.status !== "pending") return; // already settled — ignore replays
 
   const approved = CLIP_PAID_STATUSES.has(resourceStatus);
+  const terminallyRejected = CLIP_TERMINAL_REJECTED_STATUSES.has(resourceStatus);
+  if (!approved && !terminallyRejected) {
+    // Still in flight (e.g. CHECKOUT_CREATED right after the link was made,
+    // or CHECKOUT_PENDING mid-payment) — leave payment.status as "pending"
+    // so a later webhook for this same payment can still be processed.
+    return;
+  }
 
   await supabaseAdmin
     .from("payments")

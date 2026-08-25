@@ -229,10 +229,19 @@ export function CheckoutForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-aura-base bg-aura-primary px-5 py-3 text-sm font-semibold text-aura-on-primary disabled:opacity-60"
+        aria-label={pending ? "Redirigiendo a Clip…" : "Pagar con Clip"}
+        className="self-start disabled:opacity-60"
       >
-        {pending ? "Redirigiendo a Clip…" : "Pagar con Clip"}
+        {/* eslint-disable-next-line @next/next/no-img-element -- Clip's official button asset, not a next/image-managed catalog photo */}
+        <img
+          src="https://prod-ses-email-templates-assets.s3.amazonaws.com/payment/pay-with-clip/button-logos/es/estandar/svg/naranja_hover_con_sombra.svg"
+          alt="Pagar con Clip"
+          className="h-auto w-56"
+        />
       </button>
+      {pending && (
+        <p className="text-sm text-aura-on-surface-variant">Redirigiendo a Clip…</p>
+      )}
     </form>
   );
 }

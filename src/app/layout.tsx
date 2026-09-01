@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Hanken_Grotesk, Libre_Caslon_Text } from "next/font/google";
 import "./globals.css";
 import { SocialLinks } from "@/components/social-links";
@@ -34,6 +35,7 @@ export default async function RootLayout({
         <WhatsAppBanner message={bannerMessage} />
         {children}
         <SocialLinks />
+        <Analytics />
       </body>
     </html>
   );

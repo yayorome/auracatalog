@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CLIP_PAID_STATUSES, CLIP_TERMINAL_REJECTED_STATUSES } from "@/lib/clip";
-import { sendOrderReceiptEmail } from "@/lib/email";
+import { sendOrderNotificationEmail, sendOrderReceiptEmail } from "@/lib/email";
 
 /**
  * Applies a Clip payment result to our own records. Shared by the real
@@ -85,45 +85,70 @@ function formatShippingLine(address: ShippingAddressSnapshot): string {
 // confirmation — the order is already paid and stock already decremented
 // by the time this runs, so any error here is logged, not thrown.
 async function sendReceiptSafely(saleId: string) {
-  try {
-    const { data: sale } = await supabaseAdmin
-      .from("sales")
-      .select(
-        "id, currency, subtotal, shipping_cost, total, shipping_address, clients(email, name), sale_items(product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)"
-      )
-      .eq("id", saleId)
-      .single();
+  const { data: sale } = await supabaseAdmin
+    .from("sales")
+    .select(
+      "id, currency, subtotal, shipping_cost, total, shipping_address, clients(email, name), sale_items(product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)"
+    )
+    .eq("id", saleId)
+    .single();
 
-    if (!sale) return;
-    // Supabase infers a belongs-to join like this as an array without
-    // generated Database types on hand — it's always exactly one row here.
-    const client = Array.isArray(sale.clients) ? sale.clients[0] : sale.clients;
-    const email = client?.email;
-    if (!email) {
-      console.warn(`[email] sale ${saleId} has no client email — skipping receipt`);
-      return;
+  if (!sale) return;
+  // Supabase infers a belongs-to join like this as an array without
+  // generated Database types on hand — it's always exactly one row here.
+  const client = Array.isArray(sale.clients) ? sale.clients[0] : sale.clients;
+  const email = client?.email;
+  const shippingAddress = sale.shipping_address as ShippingAddressSnapshot | null;
+  const items = sale.sale_items.map((item) => ({
+    name: item.product_name_snapshot,
+    milliliters: item.milliliters_snapshot,
+    quantity: item.quantity,
+    unitPrice: Number(item.unit_price),
+    lineTotal: Number(item.line_total),
+  }));
+
+  if (!email) {
+    console.warn(`[email] sale ${saleId} has no client email — skipping receipt`);
+  } else {
+    try {
+      await sendOrderReceiptEmail({
+        toEmail: email,
+        toName: shippingAddress?.name ?? client?.name ?? "",
+        saleId: sale.id,
+        currency: sale.currency,
+        subtotal: Number(sale.subtotal),
+        shippingCost: Number(sale.shipping_cost),
+        total: Number(sale.total),
+        items,
+        shippingAddressLine: shippingAddress ? formatShippingLine(shippingAddress) : null,
+      });
+    } catch (err) {
+      console.error(`[email] failed to send receipt for sale ${saleId}`, err);
     }
+  }
 
-    const shippingAddress = sale.shipping_address as ShippingAddressSnapshot | null;
+  try {
+    const { data: settings } = await supabaseAdmin
+      .from("site_settings")
+      .select("order_notification_emails")
+      .eq("id", 1)
+      .maybeSingle();
 
-    await sendOrderReceiptEmail({
-      toEmail: email,
-      toName: shippingAddress?.name ?? client?.name ?? "",
+    const notificationEmails = (settings?.order_notification_emails ?? "")
+      .split(",")
+      .map((address: string) => address.trim())
+      .filter(Boolean);
+
+    await sendOrderNotificationEmail({
+      toEmails: notificationEmails,
       saleId: sale.id,
       currency: sale.currency,
-      subtotal: Number(sale.subtotal),
-      shippingCost: Number(sale.shipping_cost),
       total: Number(sale.total),
-      items: sale.sale_items.map((item) => ({
-        name: item.product_name_snapshot,
-        milliliters: item.milliliters_snapshot,
-        quantity: item.quantity,
-        unitPrice: Number(item.unit_price),
-        lineTotal: Number(item.line_total),
-      })),
-      shippingAddressLine: shippingAddress ? formatShippingLine(shippingAddress) : null,
+      customerName: shippingAddress?.name ?? client?.name ?? "",
+      customerEmail: email ?? "",
+      items,
     });
   } catch (err) {
-    console.error(`[email] failed to send receipt for sale ${saleId}`, err);
+    console.error(`[email] failed to send order notification for sale ${saleId}`, err);
   }
 }

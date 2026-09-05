@@ -12,6 +12,19 @@ const STATUS_LABELS: Record<string, string> = {
   refunded: "Reembolsado",
 };
 
+const FULFILLMENT_LABELS: Record<string, string> = {
+  processing: "En preparación",
+  shipped: "Enviado",
+  delivered: "Entregado",
+};
+
+// Once a sale is paid, the fulfillment stage (processing/shipped/delivered)
+// is more useful to a customer than the static "Pagado" payment status.
+function orderStatusLabel(status: string, fulfillmentStatus: string): string {
+  if (status === "paid") return FULFILLMENT_LABELS[fulfillmentStatus] ?? fulfillmentStatus;
+  return STATUS_LABELS[status] ?? status;
+}
+
 interface ShippingAddress {
   name: string;
   phone: string | null;
@@ -53,7 +66,7 @@ export default async function OrderDetailPage({
   // own orders — a well-formed id belonging to someone else just returns null.
   const { data: sale, error } = await supabase
     .from("sales")
-    .select("id, status, subtotal, shipping_cost, total, currency, created_at, shipping_address, sale_items(id, product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)")
+    .select("id, status, fulfillment_status, tracking_number, carrier, subtotal, shipping_cost, total, currency, created_at, shipping_address, sale_items(id, product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)")
     .eq("id", id)
     .maybeSingle();
 
@@ -73,8 +86,22 @@ export default async function OrderDetailPage({
       </h1>
       <p className="mb-6 text-sm text-aura-on-surface-variant">
         {new Date(sale.created_at).toLocaleString("es-MX")} ·{" "}
-        {STATUS_LABELS[sale.status] ?? sale.status}
+        {orderStatusLabel(sale.status, sale.fulfillment_status)}
       </p>
+
+      {sale.status === "paid" && (sale.tracking_number || sale.carrier) && (
+        <div className="mb-6 rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest p-3">
+          <p className="text-xs font-medium tracking-wide text-aura-on-surface-variant">
+            RASTREO
+          </p>
+          {sale.carrier && (
+            <p className="mt-1 text-sm text-aura-on-surface">{sale.carrier}</p>
+          )}
+          {sale.tracking_number && (
+            <p className="text-sm text-aura-on-surface-variant">{sale.tracking_number}</p>
+          )}
+        </div>
+      )}
 
       {shippingAddress && (
         <div className="mb-6 rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest p-3">

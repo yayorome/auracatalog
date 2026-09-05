@@ -105,6 +105,80 @@ export async function sendOrderReceiptEmail(order: OrderReceiptEmail): Promise<v
   }
 }
 
+export interface OrderNotificationEmail {
+  toEmails: string[];
+  saleId: string;
+  currency: string;
+  total: number;
+  customerName: string;
+  customerEmail: string;
+  items: OrderReceiptItem[];
+}
+
+// Internal notification to the store's own team, distinct from the
+// customer-facing receipt above — sent to the comma-separated list in
+// site_settings.order_notification_emails.
+export async function sendOrderNotificationEmail(order: OrderNotificationEmail): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL;
+
+  if (!apiKey || !from) {
+    console.warn(
+      `[email] RESEND_API_KEY/RESEND_FROM_EMAIL not configured — skipping order notification for sale ${order.saleId}`
+    );
+    return;
+  }
+
+  if (order.toEmails.length === 0) return;
+
+  const resend = new Resend(apiKey);
+  const orderNumber = order.saleId.slice(0, 8);
+
+  const itemsHtml = order.items
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #e3e3df;">
+            ${escapeHtml(item.name)} · ${item.milliliters} ml × ${item.quantity}
+          </td>
+          <td style="padding:8px 0;border-bottom:1px solid #e3e3df;text-align:right;">
+            ${formatPrice(item.lineTotal, order.currency)}
+          </td>
+        </tr>`
+    )
+    .join("");
+
+  const html = `
+    <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;color:#1a1c1a;">
+      <h1 style="font-size:22px;">Nuevo pedido pagado #${orderNumber}</h1>
+      <p style="color:#45474a;">
+        Cliente: ${escapeHtml(order.customerName)} (${escapeHtml(order.customerEmail)})
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+        ${itemsHtml}
+      </table>
+      <table style="width:100%;margin-top:12px;">
+        <tr>
+          <td style="font-weight:bold;padding-top:6px;">Total</td>
+          <td style="font-weight:bold;text-align:right;padding-top:6px;">
+            ${formatPrice(order.total, order.currency)}
+          </td>
+        </tr>
+      </table>
+    </div>`;
+
+  const { error } = await resend.emails.send({
+    from,
+    to: order.toEmails,
+    subject: `Nuevo pedido #${orderNumber} · Aura Research Parfums`,
+    html,
+  });
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
+  }
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

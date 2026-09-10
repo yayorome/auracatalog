@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createPaymentLink } from "@/lib/clip";
 import { computeShippingCost } from "@/lib/shipping";
+import { discardSale as discardAbandonedSale } from "@/lib/discard-sale";
 import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
 
 export interface CheckoutActionState {
@@ -25,16 +26,6 @@ interface CartLine {
 // for local dev. Without this, Clip was being sent redirection/webhook URLs
 // pointing at localhost from preview deployments, which Clip's API
 // rejected with a 500.
-// Deletes a sale (and its children, FK-safe order) that was staged for
-// checkout but never made it to a real payment attempt — used whenever a
-// step after sale creation fails, so a broken checkout doesn't leave a
-// zombie pending_payment/$0 order in the customer's order history.
-async function discardAbandonedSale(saleId: string) {
-  await supabaseAdmin.from("payments").delete().eq("sale_id", saleId);
-  await supabaseAdmin.from("sale_items").delete().eq("sale_id", saleId);
-  await supabaseAdmin.from("sales").delete().eq("id", saleId);
-}
-
 function siteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;

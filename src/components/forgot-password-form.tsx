@@ -3,16 +3,34 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { loginAction, type AuthActionState } from "@/lib/auth-actions";
+import {
+  requestPasswordResetAction,
+  type AuthActionState,
+} from "@/lib/auth-actions";
 
 const initialState: AuthActionState = { error: null };
 
-export function LoginForm({ next }: { next: string }) {
-  const [state, formAction, pending] = useActionState(loginAction, initialState);
+export function ForgotPasswordForm() {
+  const [state, formAction, pending] = useActionState(
+    requestPasswordResetAction,
+    initialState
+  );
+
+  if (state.checkEmail) {
+    return (
+      <p className="text-sm text-aura-on-surface">
+        Si ese correo tiene una cuenta, te enviamos un enlace para
+        restablecer tu contraseña. Revisa tu bandeja de entrada.
+      </p>
+    );
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <input type="hidden" name="next" value={next} />
+      <p className="text-sm text-aura-on-surface-variant">
+        Ingresa el correo de tu cuenta y te enviaremos un enlace para
+        restablecer tu contraseña.
+      </p>
 
       <label className="flex flex-col gap-1 text-sm text-aura-on-surface">
         Correo electrónico
@@ -25,21 +43,6 @@ export function LoginForm({ next }: { next: string }) {
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-aura-on-surface">
-        Contraseña
-        <input
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline"
-        />
-      </label>
-
-      <Link href="/forgot-password" className="-mt-2 self-end text-sm underline text-aura-on-surface-variant">
-        ¿Olvidaste tu contraseña?
-      </Link>
-
       {state.error && (
         <p role="alert" className="text-sm text-aura-error">
           {state.error}
@@ -51,16 +54,12 @@ export function LoginForm({ next }: { next: string }) {
         disabled={pending}
         className="mt-2 rounded-aura-base bg-aura-primary px-5 py-3 text-sm font-semibold text-aura-on-primary disabled:opacity-60"
       >
-        {pending ? "Ingresando…" : "Iniciar sesión"}
+        {pending ? "Enviando…" : "Enviar enlace"}
       </button>
 
       <p className="text-center text-sm text-aura-on-surface-variant">
-        ¿Aún no tienes cuenta?{" "}
-        <Link
-          href={`/register?next=${encodeURIComponent(next)}`}
-          className="underline"
-        >
-          Regístrate
+        <Link href="/login" className="underline">
+          Volver a iniciar sesión
         </Link>
       </p>
     </form>

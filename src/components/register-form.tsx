@@ -18,6 +18,10 @@ export function RegisterForm({ next }: { next: string }) {
   const [colonias, setColonias] = useState<string[]>([]);
   const [neighborhood, setNeighborhood] = useState("");
   const [postalCodeHint, setPostalCodeHint] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const passwordMismatch =
+    confirmPassword.length > 0 && password !== confirmPassword;
   const municipalityRef = useRef<HTMLInputElement>(null);
   const cityRef = useRef<HTMLInputElement>(null);
   const stateRef = useRef<HTMLInputElement>(null);
@@ -60,8 +64,14 @@ export function RegisterForm({ next }: { next: string }) {
     );
   }
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (password !== confirmPassword) {
+      e.preventDefault();
+    }
+  }
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
 
       <Field label="Nombre completo" name="fullName" autoComplete="name" required />
@@ -85,16 +95,39 @@ export function RegisterForm({ next }: { next: string }) {
         autoComplete="new-password"
         required
         minLength={8}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
       />
+      <div className="flex flex-col gap-1">
+        <Field
+          label="Confirmar contraseña"
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
+        {passwordMismatch && (
+          <p className="text-xs text-aura-error">Las contraseñas no coinciden.</p>
+        )}
+      </div>
 
       <div>
         <h2 className="mb-3 text-sm font-medium text-aura-on-surface-variant">
-          DIRECCIÓN DE ENVÍO (OPCIONAL)
+          DIRECCIÓN DE ENVÍO
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Calle" name="street" autoComplete="address-line1" className="sm:col-span-2" />
-          <Field label="No. exterior" name="exteriorNumber" autoComplete="off" />
-          <Field label="No. interior" name="interiorNumber" autoComplete="off" />
+          <Field
+            label="Calle"
+            name="street"
+            autoComplete="address-line1"
+            className="sm:col-span-2"
+            required
+          />
+          <Field label="No. exterior" name="exteriorNumber" autoComplete="off" required />
+          <Field label="No. interior (opcional)" name="interiorNumber" autoComplete="off" />
           <div className="flex flex-col gap-1">
             <Field
               label="Código postal"
@@ -102,6 +135,7 @@ export function RegisterForm({ next }: { next: string }) {
               autoComplete="postal-code"
               value={postalCode}
               onChange={handlePostalCodeChange}
+              required
             />
             {postalCodeHint && <p className="text-xs text-aura-error">{postalCodeHint}</p>}
           </div>
@@ -111,6 +145,7 @@ export function RegisterForm({ next }: { next: string }) {
             value={neighborhood}
             onChange={(e) => setNeighborhood(e.target.value)}
             disabled={colonias.length === 0}
+            required
           >
             <option value="" disabled>
               {colonias.length === 0 ? "Ingresa tu código postal" : "Selecciona tu colonia"}
@@ -126,9 +161,22 @@ export function RegisterForm({ next }: { next: string }) {
             name="municipality"
             autoComplete="off"
             inputRef={municipalityRef}
+            required
           />
-          <Field label="Ciudad" name="city" autoComplete="address-level2" inputRef={cityRef} />
-          <Field label="Estado" name="state" autoComplete="address-level1" inputRef={stateRef} />
+          <Field
+            label="Ciudad"
+            name="city"
+            autoComplete="address-level2"
+            inputRef={cityRef}
+            required
+          />
+          <Field
+            label="Estado"
+            name="state"
+            autoComplete="address-level1"
+            inputRef={stateRef}
+            required
+          />
         </div>
       </div>
 
@@ -140,7 +188,7 @@ export function RegisterForm({ next }: { next: string }) {
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || passwordMismatch}
         className="mt-2 rounded-aura-base bg-aura-primary px-5 py-3 text-sm font-semibold text-aura-on-primary disabled:opacity-60"
       >
         {pending ? "Creando cuenta…" : "Crear cuenta"}

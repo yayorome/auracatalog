@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CLIP_PAID_STATUSES, CLIP_TERMINAL_REJECTED_STATUSES } from "@/lib/clip";
+import { discardSale } from "@/lib/discard-sale";
 import { sendOrderNotificationEmail, sendOrderReceiptEmail } from "@/lib/email";
 
 /**
@@ -21,40 +22,45 @@ export async function fulfillClipPayment(
   if (!payment) throw new Error(`No payment row found for sale ${saleId}`);
   if (payment.status !== "pending") return; // already settled — ignore replays
 
-  const approved = CLIP_PAID_STATUSES.has(resourceStatus);
   const terminallyRejected = CLIP_TERMINAL_REJECTED_STATUSES.has(resourceStatus);
-  if (!approved && !terminallyRejected) {
+  if (!CLIP_PAID_STATUSES.has(resourceStatus) && !terminallyRejected) {
     // Still in flight (e.g. CHECKOUT_CREATED right after the link was made,
     // or CHECKOUT_PENDING mid-payment) — leave payment.status as "pending"
     // so a later webhook for this same payment can still be processed.
     return;
   }
 
+  if (terminallyRejected) {
+    // A checkout that never resulted in a successful payment shouldn't
+    // leave a "Pago pendiente" order sitting in the customer's history
+    // forever — discard it entirely instead of just marking the payment
+    // rejected. No stock was ever decremented for a pending_payment sale
+    // (mark_sale_paid is the only thing that decrements it), so there's
+    // nothing else to roll back.
+    await discardSale(saleId);
+    return;
+  }
+
   await supabaseAdmin
     .from("payments")
-    .update({
-      status: approved ? "approved" : "rejected",
-      raw_payload: rawPayload as never,
-    })
+    .update({ status: "approved", raw_payload: rawPayload as never })
     .eq("id", payment.id);
 
-  if (approved) {
-    // Decrements stock, logs inventory_movements, and sets sales.status =
-    // 'paid' — reuses the existing staff-flow RPC instead of duplicating it.
-    const { error } = await supabaseAdmin.rpc("mark_sale_paid", {
-      p_sale_id: saleId,
-    });
-    if (error) {
-      // Most likely cause: stock ran out between checkout and payment.
-      await supabaseAdmin
-        .from("payments")
-        .update({ status: "rejected", raw_payload: { error: error.message } as never })
-        .eq("id", payment.id);
-      throw error;
-    }
-
-    await sendReceiptSafely(saleId);
+  // Decrements stock, logs inventory_movements, and sets sales.status =
+  // 'paid' — reuses the existing staff-flow RPC instead of duplicating it.
+  const { error } = await supabaseAdmin.rpc("mark_sale_paid", {
+    p_sale_id: saleId,
+  });
+  if (error) {
+    // Most likely cause: stock ran out between checkout and payment.
+    await supabaseAdmin
+      .from("payments")
+      .update({ status: "rejected", raw_payload: { error: error.message } as never })
+      .eq("id", payment.id);
+    throw error;
   }
+
+  await sendReceiptSafely(saleId);
 }
 
 interface ShippingAddressSnapshot {

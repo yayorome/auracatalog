@@ -17,12 +17,24 @@ function safeNext(next: FormDataEntryValue | null): string {
   return value.startsWith("/") && !value.startsWith("//") ? value : "/";
 }
 
+// Mirrors checkout-actions.ts's siteUrl(): NEXT_PUBLIC_SITE_URL pins the
+// stable production domain when set, VERCEL_URL covers preview deploys,
+// and localhost is the local-dev fallback. Needed here so the password
+// recovery email's link points back at this app instead of Supabase's own
+// domain.
+function siteUrl(): string {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+}
+
 export async function registerAction(
   _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const street = String(formData.get("street") ?? "").trim();
@@ -41,19 +53,31 @@ export async function registerAction(
   if (password.length < 8) {
     return { error: "La contraseña debe tener al menos 8 caracteres." };
   }
+  if (password !== confirmPassword) {
+    return { error: "Las contraseñas no coinciden." };
+  }
+  // Shipping address is required at registration — interiorNumber is the
+  // only optional field (not every address has one).
+  if (
+    !street ||
+    !exteriorNumber ||
+    !neighborhood ||
+    !postalCode ||
+    !municipality ||
+    !city ||
+    !state
+  ) {
+    return { error: "Completa tu dirección de envío." };
+  }
 
   const supabase = await createSupabaseServerClient();
 
-  // Shipping address is optional at registration, but if a postal code was
-  // entered it still has to be a real one per the SEPOMEX catalog.
-  if (postalCode) {
-    const postalCodeInfo = await lookupPostalCode(supabase, postalCode);
-    if (!postalCodeInfo) {
-      return { error: "El código postal no existe." };
-    }
-    if (neighborhood && !isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
-      return { error: "La colonia no corresponde a ese código postal." };
-    }
+  const postalCodeInfo = await lookupPostalCode(supabase, postalCode);
+  if (!postalCodeInfo) {
+    return { error: "El código postal no existe." };
+  }
+  if (!isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
+    return { error: "La colonia no corresponde a ese código postal." };
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -104,6 +128,27 @@ export async function loginAction(
 
   if (error) return { error: "Correo o contraseña incorrectos." };
   redirect(next);
+}
+
+export async function requestPasswordResetAction(
+  _prevState: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) {
+    return { error: "Ingresa tu correo." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  // resetPasswordForEmail doesn't error for an unknown email (Supabase's
+  // own anti-enumeration behavior) — always show the same "check your
+  // email" message so this form can't be used to test which addresses
+  // have an account, same reasoning as registerAction's checkEmail state.
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl()}/reset-password`,
+  });
+
+  return { error: null, checkEmail: true };
 }
 
 export async function logoutAction() {

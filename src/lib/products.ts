@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { supabase, supabaseUrl } from "./supabase";
 
 export interface ProductVariant {
@@ -99,7 +101,12 @@ export async function fetchProducts(): Promise<Product[]> {
   return (data as ProductRow[]).map(toProduct);
 }
 
-export async function fetchProduct(productId: string): Promise<Product | null> {
+// Wrapped in React's request-scoped cache so generateMetadata and the page
+// component (product/[id]/page.tsx) share one query per request instead of
+// fetching the same product twice.
+export const fetchProduct = cache(async function fetchProduct(
+  productId: string
+): Promise<Product | null> {
   const { data, error } = await supabase
     .from("products")
     .select(PRODUCT_COLUMNS)
@@ -114,4 +121,4 @@ export async function fetchProduct(productId: string): Promise<Product | null> {
   }
   if (!data) return null;
   return toProduct(data as ProductRow);
-}
+});

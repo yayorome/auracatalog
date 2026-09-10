@@ -8,6 +8,7 @@ import { createPaymentLink } from "@/lib/clip";
 import { computeShippingCost } from "@/lib/shipping";
 import { discardSale as discardAbandonedSale } from "@/lib/discard-sale";
 import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
+import { siteUrl } from "@/lib/site-url";
 
 export interface CheckoutActionState {
   error: string | null;
@@ -16,20 +17,6 @@ export interface CheckoutActionState {
 interface CartLine {
   variantId: string;
   quantity: number;
-}
-
-// NEXT_PUBLIC_SITE_URL is meant to pin the stable production custom domain,
-// so it wins when explicitly set. On a Vercel preview deployment it's
-// normally left unset (each preview gets its own unique URL anyway), so
-// fall back to Vercel's own VERCEL_URL system env var (set automatically on
-// every preview/production build) before finally falling back to localhost
-// for local dev. Without this, Clip was being sent redirection/webhook URLs
-// pointing at localhost from preview deployments, which Clip's API
-// rejected with a 500.
-function siteUrl(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
 }
 
 // Preview deployments sit behind Vercel Authentication even on a verified

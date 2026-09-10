@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AddToCart } from "@/components/add-to-cart";
@@ -7,6 +8,30 @@ import { formatPrice } from "@/lib/format";
 import { fetchProduct } from "@/lib/products";
 
 export const revalidate = 30;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const product = await fetchProduct(id);
+  if (!product) return {};
+
+  const title = product.brand ? `${product.name} — ${product.brand}` : product.name;
+  const description =
+    product.description ?? `Descubre ${product.name} en Aura Research Parfums.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
+    },
+  };
+}
 
 export default async function ProductDetailPage({
   params,

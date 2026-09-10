@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { CartProvider } from "@/lib/cart-context";
 import { fetchBannerSettings } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { siteUrl } from "@/lib/site-url";
 
 const libreCaslonText = Libre_Caslon_Text({
   variable: "--font-libre-caslon-text",
@@ -20,6 +21,7 @@ const hankenGrotesk = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: "Aura Research Parfums",
   description: "Catálogo de perfumes Aura Research Parfums.",
 };

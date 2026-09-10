@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
 import { validatePassword } from "@/lib/password";
+import { siteUrl } from "@/lib/site-url";
 
 export interface AuthActionState {
   error: string | null;
@@ -16,17 +17,6 @@ export interface AuthActionState {
 function safeNext(next: FormDataEntryValue | null): string {
   const value = typeof next === "string" ? next : "";
   return value.startsWith("/") && !value.startsWith("//") ? value : "/";
-}
-
-// Mirrors checkout-actions.ts's siteUrl(): NEXT_PUBLIC_SITE_URL pins the
-// stable production domain when set, VERCEL_URL covers preview deploys,
-// and localhost is the local-dev fallback. Needed here so the password
-// recovery email's link points back at this app instead of Supabase's own
-// domain.
-function siteUrl(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
 }
 
 export async function registerAction(

@@ -7,21 +7,10 @@ import { formatPrice } from "@/lib/format";
 import { createCheckoutAction, type CheckoutActionState } from "@/lib/checkout-actions";
 import { lookupPostalCodeAction } from "@/lib/postal-code-actions";
 import { computeShippingCost, FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { formatAddressLines } from "@/lib/format-address";
 import type { ClientProfile } from "@/lib/customer";
 
 const initialState: CheckoutActionState = { error: null };
-
-function formatAddress(client: ClientProfile): string {
-  const line1 = [client.street, client.exterior_number].filter(Boolean).join(" ");
-  const line1WithInterior = client.interior_number
-    ? `${line1} Int. ${client.interior_number}`
-    : line1;
-  const line2 = [client.neighborhood, client.postal_code].filter(Boolean).join(", ");
-  const line3 = [client.municipality || client.city, client.state]
-    .filter(Boolean)
-    .join(", ");
-  return [line1WithInterior, line2, line3].filter(Boolean).join(" · ");
-}
 
 export function CheckoutForm({
   client,
@@ -110,7 +99,7 @@ export function CheckoutForm({
 
         {hasSavedAddress && !useDifferentAddress ? (
           <div className="mt-3 rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest p-3">
-            <p className="text-sm text-aura-on-surface">{formatAddress(client!)}</p>
+            <p className="text-sm text-aura-on-surface">{formatAddressLines(client!)}</p>
             <button
               type="button"
               onClick={() => setUseDifferentAddress(true)}

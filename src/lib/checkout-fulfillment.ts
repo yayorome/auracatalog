@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CLIP_PAID_STATUSES, CLIP_TERMINAL_REJECTED_STATUSES } from "@/lib/clip";
 import { discardSale } from "@/lib/discard-sale";
 import { sendOrderNotificationEmail, sendOrderReceiptEmail } from "@/lib/email";
+import { formatAddressLines, type AddressFields } from "@/lib/format-address";
 
 /**
  * Applies a Clip payment result to our own records. Shared by the real
@@ -78,28 +79,10 @@ export async function fulfillClipPayment(
   await sendReceiptSafely(saleId);
 }
 
-interface ShippingAddressSnapshot {
+interface ShippingAddressSnapshot extends AddressFields {
   name: string;
   street: string;
-  exterior_number: string | null;
-  interior_number: string | null;
-  neighborhood: string | null;
   postal_code: string;
-  municipality: string | null;
-  city: string | null;
-  state: string | null;
-}
-
-function formatShippingLine(address: ShippingAddressSnapshot): string {
-  const line1 = [address.street, address.exterior_number].filter(Boolean).join(" ");
-  const line1WithInterior = address.interior_number
-    ? `${line1} Int. ${address.interior_number}`
-    : line1;
-  const line2 = [address.neighborhood, address.postal_code].filter(Boolean).join(", ");
-  const line3 = [address.municipality || address.city, address.state]
-    .filter(Boolean)
-    .join(", ");
-  return [line1WithInterior, line2, line3].filter(Boolean).join(" · ");
 }
 
 // A receipt-email failure must never surface as a failed payment
@@ -141,7 +124,7 @@ async function sendReceiptSafely(saleId: string) {
         shippingCost: Number(sale.shipping_cost),
         total: Number(sale.total),
         items,
-        shippingAddressLine: shippingAddress ? formatShippingLine(shippingAddress) : null,
+        shippingAddressLine: shippingAddress ? formatAddressLines(shippingAddress) : null,
       });
     } catch (err) {
       console.error(`[email] failed to send receipt for sale ${saleId}`, err);

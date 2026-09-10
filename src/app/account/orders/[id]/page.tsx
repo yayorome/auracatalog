@@ -2,32 +2,15 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { formatPrice } from "@/lib/format";
+import { formatAddressLines, type AddressFields } from "@/lib/format-address";
 import { orderStatusLabel } from "@/lib/order-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-interface ShippingAddress {
+interface ShippingAddress extends AddressFields {
   name: string;
   phone: string | null;
   street: string;
-  exterior_number: string | null;
-  interior_number: string | null;
-  neighborhood: string | null;
   postal_code: string;
-  municipality: string | null;
-  city: string | null;
-  state: string | null;
-}
-
-function formatShippingAddress(address: ShippingAddress): string {
-  const line1 = [address.street, address.exterior_number].filter(Boolean).join(" ");
-  const line1WithInterior = address.interior_number
-    ? `${line1} Int. ${address.interior_number}`
-    : line1;
-  const line2 = [address.neighborhood, address.postal_code].filter(Boolean).join(", ");
-  const line3 = [address.municipality || address.city, address.state]
-    .filter(Boolean)
-    .join(", ");
-  return [line1WithInterior, line2, line3].filter(Boolean).join(" · ");
 }
 
 export default async function OrderDetailPage({
@@ -90,7 +73,7 @@ export default async function OrderDetailPage({
           </p>
           <p className="mt-1 text-sm text-aura-on-surface">{shippingAddress.name}</p>
           <p className="text-sm text-aura-on-surface-variant">
-            {formatShippingAddress(shippingAddress)}
+            {formatAddressLines(shippingAddress)}
           </p>
         </div>
       )}

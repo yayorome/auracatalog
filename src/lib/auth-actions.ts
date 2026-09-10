@@ -143,6 +143,38 @@ export async function requestPasswordResetAction(
   return { error: null, checkEmail: true };
 }
 
+export interface ResetPasswordActionState {
+  error: string | null;
+  success: boolean;
+}
+
+// registerAction re-validates validatePassword() server-side so the
+// strength rule can't be bypassed by a scripted client — reset-password-form
+// used to call supabase.auth.updateUser() directly from the browser with no
+// server-side check, meaning anyone calling Supabase Auth's API directly
+// with the recovery session could set a password that fails validatePassword.
+// Routing the reset through this Server Action (which reuses the same
+// cookie-bound client the recovery session already lives in) closes that gap.
+export async function resetPasswordAction(
+  _prevState: ResetPasswordActionState,
+  formData: FormData
+): Promise<ResetPasswordActionState> {
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  const passwordError = validatePassword(password);
+  if (passwordError) return { error: passwordError, success: false };
+  if (password !== confirmPassword) {
+    return { error: "Las contraseñas no coinciden.", success: false };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message, success: false };
+
+  return { error: null, success: true };
+}
+
 export async function logoutAction() {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();

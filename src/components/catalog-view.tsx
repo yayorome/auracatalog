@@ -166,11 +166,23 @@ function ProductCard({
   }
 
   return (
-    <Link
-      href={`/product/${product.id}`}
+    // The quick-add button below needs to be independently clickable, so it
+    // can't live inside the same <a> that makes the rest of the card
+    // navigate (nesting a <button> inside an <a> is invalid HTML and
+    // confuses keyboard/screen-reader navigation — the button used to sit
+    // inside this Link with preventDefault/stopPropagation, which worked
+    // visually but not structurally). Instead the Link is an absolutely
+    // positioned overlay covering the whole card (the standard "stretched
+    // link" pattern), and the button sits above it via z-index.
+    <div
       style={{ animationDelay: `${delayMs}ms` }}
-      className="animate-fade-in-up group flex flex-col rounded-aura-lg border border-aura-outline-variant bg-aura-surface-container-lowest p-3 transition-shadow hover:shadow-sm"
+      className="animate-fade-in-up group relative flex flex-col rounded-aura-lg border border-aura-outline-variant bg-aura-surface-container-lowest p-3 transition-shadow hover:shadow-sm"
     >
+      <Link
+        href={`/product/${product.id}`}
+        className="absolute inset-0 z-0 rounded-aura-lg"
+        aria-label={product.name}
+      />
       <div className="relative aspect-square w-full overflow-hidden rounded-aura-md">
         <ProductImage
           imageUrl={product.imageUrl}
@@ -211,7 +223,7 @@ function ProductCard({
             type="button"
             onClick={handleQuickAdd}
             aria-label={`Agregar ${product.name} al carrito`}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
+            className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
               added
                 ? "bg-aura-tertiary text-aura-on-primary"
                 : "bg-aura-primary text-aura-on-primary hover:bg-aura-on-surface"
@@ -225,7 +237,7 @@ function ProductCard({
           </button>
         )}
       </div>
-    </Link>
+    </div>
   );
 }
 

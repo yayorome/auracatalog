@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { PASSWORD_REQUIREMENTS_TEXT, validatePassword } from "@/lib/password";
+import { resetPasswordAction, type ResetPasswordActionState } from "@/lib/auth-actions";
 
-type Status = "checking" | "ready" | "invalid" | "done";
+type Status = "checking" | "ready" | "invalid";
+
+const initialState: ResetPasswordActionState = { error: null, success: false };
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -16,11 +19,12 @@ export function ResetPasswordForm() {
   const [status, setStatus] = useState<Status>("checking");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [state, formAction, pending] = useActionState(resetPasswordAction, initialState);
 
   const passwordMismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
+  const error = clientError ?? state.error;
 
   useEffect(() => {
     // The recovery link's #access_token=... fragment is consumed by the
@@ -50,29 +54,29 @@ export function ResetPasswordForm() {
     };
   }, [supabase]);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  useEffect(() => {
+    if (!state.success) return;
+    const timeout = setTimeout(() => router.push("/account"), 1500);
+    return () => clearTimeout(timeout);
+  }, [state.success, router]);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    // Client-side check purely for a snappier error without a round trip —
+    // resetPasswordAction re-validates server-side regardless (see its own
+    // comment), since anyone can call Supabase Auth's updateUser API
+    // directly with the recovery session and bypass this.
     const passwordError = validatePassword(password);
     if (passwordError) {
-      setError(passwordError);
+      e.preventDefault();
+      setClientError(passwordError);
       return;
     }
     if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
+      e.preventDefault();
+      setClientError("Las contraseñas no coinciden.");
       return;
     }
-
-    setSubmitting(true);
-    setError(null);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    setSubmitting(false);
-
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-    setStatus("done");
-    setTimeout(() => router.push("/account"), 1500);
+    setClientError(null);
   }
 
   if (status === "checking") {
@@ -92,7 +96,7 @@ export function ResetPasswordForm() {
     );
   }
 
-  if (status === "done") {
+  if (state.success) {
     return (
       <p className="text-sm text-aura-on-surface">
         Tu contraseña se actualizó. Te estamos redirigiendo…
@@ -101,11 +105,12 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm text-aura-on-surface">
         Nueva contraseña
         <input
           type="password"
+          name="password"
           autoComplete="new-password"
           required
           minLength={8}
@@ -123,6 +128,7 @@ export function ResetPasswordForm() {
           Confirmar nueva contraseña
           <input
             type="password"
+            name="confirmPassword"
             autoComplete="new-password"
             required
             minLength={8}
@@ -144,10 +150,10 @@ export function ResetPasswordForm() {
 
       <button
         type="submit"
-        disabled={submitting || passwordMismatch}
+        disabled={pending || passwordMismatch}
         className="mt-2 rounded-aura-base bg-aura-primary px-5 py-3 text-sm font-semibold text-aura-on-primary disabled:opacity-60"
       >
-        {submitting ? "Guardando…" : "Guardar contraseña"}
+        {pending ? "Guardando…" : "Guardar contraseña"}
       </button>
     </form>
   );

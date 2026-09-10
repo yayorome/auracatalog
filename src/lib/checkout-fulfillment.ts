@@ -41,10 +41,18 @@ export async function fulfillClipPayment(
     return;
   }
 
-  await supabaseAdmin
+  // Atomically flip pending -> approved, conditioned on the row still being
+  // "pending", so two near-simultaneous webhook deliveries for the same
+  // payment (a retry, or a duplicate delivery) can't both pass the earlier
+  // status check and both proceed to decrement stock / send a receipt.
+  // Whichever request's UPDATE actually matches a row "wins" the race.
+  const { data: claimed } = await supabaseAdmin
     .from("payments")
     .update({ status: "approved", raw_payload: rawPayload as never })
-    .eq("id", payment.id);
+    .eq("id", payment.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!claimed || claimed.length === 0) return; // another delivery already claimed it
 
   // Decrements stock, logs inventory_movements, and sets sales.status =
   // 'paid' — reuses the existing staff-flow RPC instead of duplicating it.
@@ -52,11 +60,18 @@ export async function fulfillClipPayment(
     p_sale_id: saleId,
   });
   if (error) {
-    // Most likely cause: stock ran out between checkout and payment.
+    // Most likely cause: stock ran out between checkout and payment. The
+    // customer already paid on Clip's side, so this can't be discarded
+    // like a never-paid checkout — that would erase the only record of a
+    // real charge. Mark the sale cancelled (out of "pending_payment" limbo,
+    // where it would otherwise sit forever since payment.status is no
+    // longer "pending" for a retried webhook to act on) so staff can find
+    // it and issue a manual refund via Clip's dashboard.
     await supabaseAdmin
       .from("payments")
       .update({ status: "rejected", raw_payload: { error: error.message } as never })
       .eq("id", payment.id);
+    await supabaseAdmin.rpc("cancel_sale_payment_failed", { p_sale_id: saleId });
     throw error;
   }
 

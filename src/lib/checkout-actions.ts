@@ -50,6 +50,23 @@ export async function createCheckoutAction(
   if (!Array.isArray(cartLines) || cartLines.length === 0) {
     return { error: "Tu carrito está vacío." };
   }
+  // The stock check below (`stock_quantity < line.quantity`) only rejects
+  // quantities that exceed stock — a negative or non-integer quantity
+  // passes it and would drive a negative line_total (sale_items_set_pricing
+  // multiplies unit_price * quantity), letting the charged total be pushed
+  // arbitrarily low by pairing a real item with a large-negative-quantity
+  // line. Reject anything but a positive integer before it ever reaches a
+  // stock check or an insert.
+  if (
+    !cartLines.every(
+      (line) =>
+        typeof line.variantId === "string" &&
+        Number.isInteger(line.quantity) &&
+        line.quantity > 0
+    )
+  ) {
+    return { error: "Tu carrito contiene una cantidad inválida." };
+  }
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
@@ -193,13 +210,24 @@ export async function createCheckoutAction(
     await discardAbandonedSale(sale.id);
     return { error: "No se pudo calcular el total de tu pedido. Intenta de nuevo." };
   }
-  await supabaseAdmin.from("sales").update({ shipping_cost: shippingCost }).eq("id", sale.id);
+  const { error: shippingCostError } = await supabaseAdmin
+    .from("sales")
+    .update({ shipping_cost: shippingCost })
+    .eq("id", sale.id);
+  if (shippingCostError) {
+    await discardAbandonedSale(sale.id);
+    return { error: "No se pudo calcular el envío de tu pedido. Intenta de nuevo." };
+  }
 
-  const { data: paymentRow } = await supabaseAdmin
+  const { data: paymentRow, error: paymentError } = await supabaseAdmin
     .from("payments")
     .insert({ sale_id: sale.id, provider: "clip", status: "pending", amount: total })
     .select("id")
     .single();
+  if (paymentError || !paymentRow) {
+    await discardAbandonedSale(sale.id);
+    return { error: "No se pudo iniciar el pago. Intenta de nuevo en unos minutos." };
+  }
 
   const base = siteUrl();
 
@@ -227,7 +255,7 @@ export async function createCheckoutAction(
     await supabaseAdmin
       .from("payments")
       .update({ provider_reference: link.payment_request_id, checkout_url: link.payment_request_url })
-      .eq("id", paymentRow!.id);
+      .eq("id", paymentRow.id);
 
     checkoutUrl = link.payment_request_url;
   } catch (err) {

@@ -13,7 +13,16 @@ export async function simulateClipPaymentAction(formData: FormData) {
   if (!saleId) redirect("/");
 
   const status = outcome === "approve" ? "CHECKOUT_COMPLETED" : "CHECKOUT_CANCELLED";
-  await fulfillClipPayment(saleId, status, { mock: true, status });
+  try {
+    await fulfillClipPayment(saleId, status, { mock: true, status });
+  } catch (err) {
+    // A double-click/back-button resubmit after the sale was already
+    // discarded or settled by the first click throws here (e.g. "No
+    // payment row found") — degrade to /checkout/error like the real
+    // webhook route does instead of an unhandled Server Action exception.
+    console.error("mock checkout fulfillment failed", err);
+    redirect(`/checkout/error?sale=${saleId}`);
+  }
 
   redirect(
     outcome === "approve"

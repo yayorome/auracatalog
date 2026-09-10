@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { PASSWORD_REQUIREMENTS_TEXT, validatePassword } from "@/lib/password";
 
 type Status = "checking" | "ready" | "invalid" | "done";
 
@@ -51,8 +52,9 @@ export function ResetPasswordForm() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres.");
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     if (password !== confirmPassword) {
@@ -111,6 +113,9 @@ export function ResetPasswordForm() {
           onChange={(e) => setPassword(e.target.value)}
           className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline"
         />
+        <span className="text-xs text-aura-on-surface-variant">
+          {PASSWORD_REQUIREMENTS_TEXT}
+        </span>
       </label>
 
       <div className="flex flex-col gap-1">

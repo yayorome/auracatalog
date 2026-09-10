@@ -5,6 +5,7 @@ import { useActionState, useRef, useState } from "react";
 
 import { registerAction, type AuthActionState } from "@/lib/auth-actions";
 import { lookupPostalCodeAction } from "@/lib/postal-code-actions";
+import { PASSWORD_REQUIREMENTS_TEXT, validatePassword } from "@/lib/password";
 
 const initialState: AuthActionState = { error: null };
 
@@ -22,6 +23,7 @@ export function RegisterForm({ next }: { next: string }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const passwordMismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
+  const passwordError = password.length > 0 ? validatePassword(password) : null;
   const municipalityRef = useRef<HTMLInputElement>(null);
   const cityRef = useRef<HTMLInputElement>(null);
   const stateRef = useRef<HTMLInputElement>(null);
@@ -65,7 +67,7 @@ export function RegisterForm({ next }: { next: string }) {
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    if (password !== confirmPassword) {
+    if (password !== confirmPassword || validatePassword(password)) {
       e.preventDefault();
     }
   }
@@ -88,16 +90,24 @@ export function RegisterForm({ next }: { next: string }) {
         type="tel"
         autoComplete="tel"
       />
-      <Field
-        label="Contraseña"
-        name="password"
-        type="password"
-        autoComplete="new-password"
-        required
-        minLength={8}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+      <div className="flex flex-col gap-1">
+        <Field
+          label="Contraseña"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <p className="text-xs text-aura-on-surface-variant">
+          {PASSWORD_REQUIREMENTS_TEXT}
+        </p>
+        {passwordError && (
+          <p className="text-xs text-aura-error">{passwordError}</p>
+        )}
+      </div>
       <div className="flex flex-col gap-1">
         <Field
           label="Confirmar contraseña"
@@ -188,7 +198,7 @@ export function RegisterForm({ next }: { next: string }) {
 
       <button
         type="submit"
-        disabled={pending || passwordMismatch}
+        disabled={pending || passwordMismatch || !!passwordError}
         className="mt-2 rounded-aura-base bg-aura-primary px-5 py-3 text-sm font-semibold text-aura-on-primary disabled:opacity-60"
       >
         {pending ? "Creando cuenta…" : "Crear cuenta"}

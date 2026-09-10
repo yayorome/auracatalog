@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
+import { validatePassword } from "@/lib/password";
 
 export interface AuthActionState {
   error: string | null;
@@ -50,8 +51,9 @@ export async function registerAction(
   if (!email || !password || !fullName) {
     return { error: "Completa tu nombre, correo y contraseña." };
   }
-  if (password.length < 8) {
-    return { error: "La contraseña debe tener al menos 8 caracteres." };
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return { error: passwordError };
   }
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };

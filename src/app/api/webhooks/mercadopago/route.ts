@@ -39,7 +39,22 @@ function isValidSignature(
   if (!ok) {
     // Never log the secret or the digests — only shape info to tell a wrong
     // secret apart from a malformed request.
+    // TEMPORARY diagnostics: which manifest variant (if any) matches, plus a
+    // short fingerprint of the secret to compare against the dashboard value
+    // (printf '%s' KEY | shasum -a 256). Remove once the 401 is resolved.
+    const hmac = (m: string) =>
+      crypto.createHmac("sha256", secret.trim()).update(m).digest("hex");
+    const variants = {
+      asIs: `id:${dataId};request-id:${requestId};ts:${ts};`,
+      noRequestId: `id:${dataId.toLowerCase()};ts:${ts};`,
+      noId: `request-id:${requestId};ts:${ts};`,
+      tsMs: `id:${dataId.toLowerCase()};request-id:${requestId};ts:${ts}000;`,
+    };
+    const matchingVariant =
+      Object.entries(variants).find(([, m]) => hmac(m) === v1)?.[0] ?? "none";
     console.error("MP webhook: signature mismatch", {
+      matchingVariant,
+      secretSha256Prefix: crypto.createHash("sha256").update(secret.trim()).digest("hex").slice(0, 8),
       secretLength: secret.trim().length,
       dataId,
       hasRequestId: !!requestId,

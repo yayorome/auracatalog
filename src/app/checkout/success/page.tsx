@@ -35,7 +35,7 @@ export default async function CheckoutSuccessPage({
       <p className="mb-8 text-sm text-aura-on-surface-variant">
         {paid
           ? "Te avisaremos por WhatsApp con los detalles de envío."
-          : "Estamos esperando la confirmación de Clip. Puedes revisar el estado en Mis pedidos en unos minutos."}
+          : "Estamos esperando la confirmación de Mercado Pago. Puedes revisar el estado en Mis pedidos en unos minutos."}
       </p>
       <Link href="/account/orders" className="underline">
         Ver mis pedidos

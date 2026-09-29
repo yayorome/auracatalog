@@ -1,18 +1,20 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { CLIP_PAID_STATUSES, CLIP_TERMINAL_REJECTED_STATUSES } from "@/lib/clip";
+import { MP_PAID_STATUSES, MP_TERMINAL_REJECTED_STATUSES } from "@/lib/mercadopago";
 import { discardSale } from "@/lib/discard-sale";
 import { sendOrderNotificationEmail, sendOrderReceiptEmail } from "@/lib/email";
 import { formatAddressLines, type AddressFields } from "@/lib/format-address";
 
 /**
- * Applies a Clip payment result to our own records. Shared by the real
- * webhook route and the local mock-checkout page (used when CLIP_API_KEY
- * isn't configured yet) so both paths exercise the same fulfillment logic.
+ * Applies a Mercado Pago payment result to our own records. Shared by the
+ * real webhook route and the local mock-checkout page (used when
+ * MP_ACCESS_TOKEN isn't configured yet) so both paths exercise the same
+ * fulfillment logic.
  */
-export async function fulfillClipPayment(
+export async function fulfillMercadoPagoPayment(
   saleId: string,
   resourceStatus: string,
-  rawPayload: unknown
+  rawPayload: unknown,
+  providerPaymentId?: string
 ) {
   const { data: payment } = await supabaseAdmin
     .from("payments")
@@ -23,11 +25,12 @@ export async function fulfillClipPayment(
   if (!payment) throw new Error(`No payment row found for sale ${saleId}`);
   if (payment.status !== "pending") return; // already settled — ignore replays
 
-  const terminallyRejected = CLIP_TERMINAL_REJECTED_STATUSES.has(resourceStatus);
-  if (!CLIP_PAID_STATUSES.has(resourceStatus) && !terminallyRejected) {
-    // Still in flight (e.g. CHECKOUT_CREATED right after the link was made,
-    // or CHECKOUT_PENDING mid-payment) — leave payment.status as "pending"
-    // so a later webhook for this same payment can still be processed.
+  const terminallyRejected = MP_TERMINAL_REJECTED_STATUSES.has(resourceStatus);
+  if (!MP_PAID_STATUSES.has(resourceStatus) && !terminallyRejected) {
+    // Still in flight (e.g. "pending"/"in_process" mid-payment, or
+    // "authorized" for some payment methods) — leave payment.status as
+    // "pending" so a later webhook for this same payment can still be
+    // processed.
     return;
   }
 
@@ -49,7 +52,11 @@ export async function fulfillClipPayment(
   // Whichever request's UPDATE actually matches a row "wins" the race.
   const { data: claimed } = await supabaseAdmin
     .from("payments")
-    .update({ status: "approved", raw_payload: rawPayload as never })
+    .update({
+      status: "approved",
+      raw_payload: rawPayload as never,
+      ...(providerPaymentId ? { provider_payment_id: providerPaymentId } : {}),
+    })
     .eq("id", payment.id)
     .eq("status", "pending")
     .select("id");
@@ -62,12 +69,13 @@ export async function fulfillClipPayment(
   });
   if (error) {
     // Most likely cause: stock ran out between checkout and payment. The
-    // customer already paid on Clip's side, so this can't be discarded
-    // like a never-paid checkout — that would erase the only record of a
-    // real charge. Mark the sale cancelled (out of "pending_payment" limbo,
-    // where it would otherwise sit forever since payment.status is no
-    // longer "pending" for a retried webhook to act on) so staff can find
-    // it and issue a manual refund via Clip's dashboard.
+    // customer already paid on Mercado Pago's side, so this can't be
+    // discarded like a never-paid checkout — that would erase the only
+    // record of a real charge. Mark the sale cancelled (out of
+    // "pending_payment" limbo, where it would otherwise sit forever since
+    // payment.status is no longer "pending" for a retried webhook to act on)
+    // so staff can find it and issue a manual refund via Mercado Pago's
+    // dashboard.
     await supabaseAdmin
       .from("payments")
       .update({ status: "rejected", raw_payload: { error: error.message } as never })

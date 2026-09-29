@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { simulateClipPaymentAction } from "@/lib/mock-checkout-actions";
+import { simulateMercadoPagoPaymentAction } from "@/lib/mock-checkout-actions";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatPrice } from "@/lib/format";
 
@@ -9,7 +9,7 @@ export default async function MockCheckoutPage({
 }: {
   searchParams: Promise<{ sale?: string }>;
 }) {
-  if (process.env.CLIP_API_KEY) notFound(); // dev-only stand-in for Clip's hosted page
+  if (process.env.MP_ACCESS_TOKEN) notFound(); // dev-only stand-in for Mercado Pago's hosted page
 
   const { sale: saleId } = await searchParams;
   if (!saleId) notFound();
@@ -24,17 +24,18 @@ export default async function MockCheckoutPage({
   return (
     <div className="mx-auto max-w-[440px] px-5 py-10 text-center md:px-0">
       <p className="mb-2 text-xs font-medium tracking-wide text-aura-on-surface-variant">
-        SIMULADOR LOCAL DE CLIP CHECKOUT
+        SIMULADOR LOCAL DE MERCADO PAGO CHECKOUT PRO
       </p>
       <h1 className="mb-2 font-headline text-2xl text-aura-on-surface">
         Total a pagar: {formatPrice(Number(sale.total), sale.currency)}
       </h1>
       <p className="mb-8 text-sm text-aura-on-surface-variant">
-        CLIP_API_KEY no está configurada — esta pantalla sustituye el checkout
-        real de Clip para poder probar el flujo completo localmente.
+        MP_ACCESS_TOKEN no está configurada — esta pantalla sustituye el
+        checkout real de Mercado Pago para poder probar el flujo completo
+        localmente.
       </p>
 
-      <form action={simulateClipPaymentAction} className="flex flex-col gap-3">
+      <form action={simulateMercadoPagoPaymentAction} className="flex flex-col gap-3">
         <input type="hidden" name="saleId" value={sale.id} />
         <button
           type="submit"

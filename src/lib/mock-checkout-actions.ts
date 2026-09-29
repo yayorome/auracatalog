@@ -2,19 +2,19 @@
 
 import { redirect } from "next/navigation";
 
-import { fulfillClipPayment } from "@/lib/checkout-fulfillment";
+import { fulfillMercadoPagoPayment } from "@/lib/checkout-fulfillment";
 
 // Only reachable from /checkout/mock, which the checkout action only
-// redirects to when CLIP_API_KEY is unset — lets the full order flow be
-// exercised locally before real Clip credentials are available.
-export async function simulateClipPaymentAction(formData: FormData) {
+// redirects to when MP_ACCESS_TOKEN is unset — lets the full order flow be
+// exercised locally before real Mercado Pago credentials are available.
+export async function simulateMercadoPagoPaymentAction(formData: FormData) {
   const saleId = String(formData.get("saleId") ?? "");
   const outcome = String(formData.get("outcome") ?? "");
   if (!saleId) redirect("/");
 
-  const status = outcome === "approve" ? "CHECKOUT_COMPLETED" : "CHECKOUT_CANCELLED";
+  const status = outcome === "approve" ? "approved" : "rejected";
   try {
-    await fulfillClipPayment(saleId, status, { mock: true, status });
+    await fulfillMercadoPagoPayment(saleId, status, { mock: true, status });
   } catch (err) {
     // A double-click/back-button resubmit after the sale was already
     // discarded or settled by the first click throws here (e.g. "No

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { createPaymentLink } from "@/lib/clip";
+import { createPreference } from "@/lib/mercadopago";
 import { computeShippingCost } from "@/lib/shipping";
 import { discardSale as discardAbandonedSale } from "@/lib/discard-sale";
 import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
@@ -21,12 +21,12 @@ interface CartLine {
 
 // Preview deployments sit behind Vercel Authentication even on a verified
 // custom domain aliased to a branch (only the Production target's domain is
-// exempted) — Clip's webhook POST would otherwise hit that login wall
-// instead of our route handler. Appending Vercel's own Protection Bypass
-// for Automation secret lets that one request through regardless of
+// exempted) — Mercado Pago's webhook POST would otherwise hit that login
+// wall instead of our route handler. Appending Vercel's own Protection
+// Bypass for Automation secret lets that one request through regardless of
 // environment; it's a no-op on Production, where nothing is protected.
 function webhookUrl(base: string): string {
-  const url = `${base}/api/webhooks/clip`;
+  const url = `${base}/api/webhooks/mercadopago`;
   const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   return bypassSecret ? `${url}?x-vercel-protection-bypass=${bypassSecret}` : url;
 }
@@ -221,7 +221,7 @@ export async function createCheckoutAction(
 
   const { data: paymentRow, error: paymentError } = await supabaseAdmin
     .from("payments")
-    .insert({ sale_id: sale.id, provider: "clip", status: "pending", amount: total })
+    .insert({ sale_id: sale.id, provider: "mercado_pago", status: "pending", amount: total })
     .select("id")
     .single();
   if (paymentError || !paymentRow) {
@@ -231,35 +231,36 @@ export async function createCheckoutAction(
 
   const base = siteUrl();
 
-  if (!process.env.CLIP_API_KEY) {
-    // Clip credentials aren't configured yet — send the customer to a local
-    // stand-in page instead of failing checkout outright. Only reachable
-    // in this env-var state; once CLIP_API_KEY is set, this branch is dead.
+  if (!process.env.MP_ACCESS_TOKEN) {
+    // Mercado Pago credentials aren't configured yet — send the customer to
+    // a local stand-in page instead of failing checkout outright. Only
+    // reachable in this env-var state; once MP_ACCESS_TOKEN is set, this
+    // branch is dead.
     redirect(`/checkout/mock?sale=${sale.id}`);
   }
 
   let checkoutUrl: string;
   try {
-    const link = await createPaymentLink({
+    const preference = await createPreference({
       amount: total,
       currency: "MXN",
-      purchaseDescription: `Pedido Aura Research Parfums #${sale.id.slice(0, 8)}`,
+      description: `Pedido Aura Research Parfums #${sale.id.slice(0, 8)}`,
       externalReference: sale.id,
       successUrl: `${base}/checkout/success?sale=${sale.id}`,
-      errorUrl: `${base}/checkout/error?sale=${sale.id}`,
-      defaultUrl: base,
-      webhookUrl: webhookUrl(base),
-      customer: { name, email: client.email ?? user.email ?? "" },
+      failureUrl: `${base}/checkout/error?sale=${sale.id}`,
+      pendingUrl: `${base}/checkout/success?sale=${sale.id}`,
+      notificationUrl: webhookUrl(base),
+      payer: { name, email: client.email ?? user.email ?? "" },
     });
 
     await supabaseAdmin
       .from("payments")
-      .update({ provider_reference: link.payment_request_id, checkout_url: link.payment_request_url })
+      .update({ provider_reference: preference.id, checkout_url: preference.init_point })
       .eq("id", paymentRow.id);
 
-    checkoutUrl = link.payment_request_url;
+    checkoutUrl = preference.init_point;
   } catch (err) {
-    console.error("Clip createPaymentLink failed", err);
+    console.error("Mercado Pago createPreference failed", err);
     await discardAbandonedSale(sale.id);
     return { error: "No se pudo iniciar el pago. Intenta de nuevo en unos minutos." };
   }

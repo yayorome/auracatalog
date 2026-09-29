@@ -17,19 +17,37 @@ function isValidSignature(
   secret: string
 ): boolean {
   const parts = Object.fromEntries(
-    signatureHeader.split(",").map((p) => p.split("=").map((s) => s.trim()))
+    signatureHeader.split(",").map((p) => {
+      const i = p.indexOf("=");
+      return [p.slice(0, i).trim(), p.slice(i + 1).trim()];
+    })
   );
   const ts = parts.ts;
   const v1 = parts.v1;
-  if (!ts || !v1) return false;
+  if (!ts || !v1) {
+    console.error("MP webhook: x-signature missing ts/v1", { hasHeader: !!signatureHeader });
+    return false;
+  }
 
-  const canonical = `id:${dataId};request-id:${requestId};ts:${ts};`;
-  const expected = crypto.createHmac("sha256", secret).update(canonical).digest("hex");
+  // Mercado Pago requires an alphanumeric data.id in lowercase in the manifest.
+  const canonical = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${ts};`;
+  const expected = crypto.createHmac("sha256", secret.trim()).update(canonical).digest("hex");
 
-  return (
+  const ok =
     expected.length === v1.length &&
-    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1))
-  );
+    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
+  if (!ok) {
+    // Never log the secret or the digests — only shape info to tell a wrong
+    // secret apart from a malformed request.
+    console.error("MP webhook: signature mismatch", {
+      secretLength: secret.trim().length,
+      dataId,
+      hasRequestId: !!requestId,
+      tsLength: ts.length,
+      v1Length: v1.length,
+    });
+  }
+  return ok;
 }
 
 // We never trust the notification body's own status field — only its
@@ -48,11 +66,13 @@ export async function POST(request: NextRequest) {
   // signature; the signed Webhooks notification for the same payment arrives
   // separately, so acknowledge and ignore these instead of failing them.
   const legacy = body as { topic?: string; resource?: string } | null;
-  if (!body?.data?.id && legacy?.topic && legacy.resource) {
+  if (!body?.data?.id && !request.nextUrl.searchParams.get("data.id") && legacy?.topic && legacy.resource) {
     return NextResponse.json({ ok: true, ignored: `ipn:${legacy.topic}` });
   }
 
-  const paymentId = body?.data?.id;
+  // The signed manifest uses data.id from the query string; the body's copy
+  // is the fallback.
+  const paymentId = request.nextUrl.searchParams.get("data.id") ?? body?.data?.id;
   if (!paymentId) {
     console.error("Mercado Pago webhook missing data.id — raw body:", rawBody);
     return NextResponse.json({ error: "missing data.id" }, { status: 400 });
@@ -67,8 +87,10 @@ export async function POST(request: NextRequest) {
   const secret = process.env.MP_WEBHOOK_SECRET;
   const signatureHeader = request.headers.get("x-signature") ?? "";
   const requestId = request.headers.get("x-request-id") ?? "";
-  if (!secret || !isValidSignature(signatureHeader, requestId, paymentId, secret)) {
-    console.error("Mercado Pago webhook signature invalid or missing MP_WEBHOOK_SECRET");
+  if (!secret || !isValidSignature(signatureHeader, requestId, String(paymentId), secret)) {
+    console.error(
+      `Mercado Pago webhook signature invalid or missing MP_WEBHOOK_SECRET (secret set: ${!!secret})`
+    );
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }
 

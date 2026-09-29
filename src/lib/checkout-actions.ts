@@ -26,9 +26,11 @@ interface CartLine {
 // Bypass for Automation secret lets that one request through regardless of
 // environment; it's a no-op on Production, where nothing is protected.
 function webhookUrl(base: string): string {
-  const url = `${base}/api/webhooks/mercadopago`;
+  // source_news=webhooks makes Mercado Pago send only the signed Webhooks
+  // format (with data.id) instead of the legacy IPN (`resource`/`topic`).
+  const url = `${base}/api/webhooks/mercadopago?source_news=webhooks`;
   const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-  return bypassSecret ? `${url}?x-vercel-protection-bypass=${bypassSecret}` : url;
+  return bypassSecret ? `${url}&x-vercel-protection-bypass=${bypassSecret}` : url;
 }
 
 export async function createCheckoutAction(

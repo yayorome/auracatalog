@@ -44,6 +44,14 @@ export async function POST(request: NextRequest) {
     // fall through — logged below via rawBody
   }
 
+  // Legacy IPN notifications ({ resource, topic }) carry no data.id and no
+  // signature; the signed Webhooks notification for the same payment arrives
+  // separately, so acknowledge and ignore these instead of failing them.
+  const legacy = body as { topic?: string; resource?: string } | null;
+  if (!body?.data?.id && legacy?.topic && legacy.resource) {
+    return NextResponse.json({ ok: true, ignored: `ipn:${legacy.topic}` });
+  }
+
   const paymentId = body?.data?.id;
   if (!paymentId) {
     console.error("Mercado Pago webhook missing data.id — raw body:", rawBody);

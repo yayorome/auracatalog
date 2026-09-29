@@ -54,6 +54,9 @@ function isValidSignature(
       Object.entries(variants).find(([, m]) => hmac(m) === v1)?.[0] ?? "none";
     console.error("MP webhook: signature mismatch", {
       matchingVariant,
+      // ids embedded in APP_USR-<appId>-<date>-<hash>-<userId>; not secret
+      tokenAppId: process.env.MP_ACCESS_TOKEN?.split("-")[1],
+      tokenUserId: process.env.MP_ACCESS_TOKEN?.split("-").pop(),
       secretSha256Prefix: crypto.createHash("sha256").update(secret.trim()).digest("hex").slice(0, 8),
       secretLength: secret.trim().length,
       dataId,
@@ -70,7 +73,12 @@ function isValidSignature(
 // Mercado Pago's Payments API before acting on it.
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
-  let body: { type?: string; data?: { id?: string } } | null = null;
+  let body: {
+    type?: string;
+    live_mode?: boolean;
+    user_id?: string | number;
+    data?: { id?: string };
+  } | null = null;
   try {
     body = JSON.parse(rawBody);
   } catch {
@@ -104,7 +112,8 @@ export async function POST(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") ?? "";
   if (!secret || !isValidSignature(signatureHeader, requestId, String(paymentId), secret)) {
     console.error(
-      `Mercado Pago webhook signature invalid or missing MP_WEBHOOK_SECRET (secret set: ${!!secret})`
+      `Mercado Pago webhook signature invalid or missing MP_WEBHOOK_SECRET (secret set: ${!!secret})`,
+      { notificationLiveMode: body?.live_mode, notificationUserId: body?.user_id }
     );
     return NextResponse.json({ error: "invalid signature" }, { status: 401 });
   }

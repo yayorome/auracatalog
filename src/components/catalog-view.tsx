@@ -182,7 +182,7 @@ function ProductCard({
     >
       <Link
         href={`/product/${product.id}`}
-        className="absolute inset-0 z-0 rounded-aura-lg"
+        className="absolute inset-0 z-[1] rounded-aura-lg"
         aria-label={product.name}
       />
       <div className="relative aspect-square w-full overflow-hidden rounded-aura-md">

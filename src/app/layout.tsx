@@ -4,7 +4,11 @@ import { Hanken_Grotesk, Libre_Caslon_Text } from "next/font/google";
 import "./globals.css";
 import { SocialLinks } from "@/components/social-links";
 import { WhatsAppBanner } from "@/components/whatsapp-banner";
-import { fetchBannerMessage } from "@/lib/settings";
+import { SiteHeader } from "@/components/site-header";
+import { CartProvider } from "@/lib/cart-context";
+import { fetchBannerSettings } from "@/lib/settings";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { siteUrl } from "@/lib/site-url";
 
 const libreCaslonText = Libre_Caslon_Text({
   variable: "--font-libre-caslon-text",
@@ -18,6 +22,7 @@ const hankenGrotesk = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()),
   title: "Aura Research Parfums",
   description: "Catálogo de perfumes Aura Research Parfums.",
 };
@@ -25,15 +30,25 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: LayoutProps<"/">) {
-  const bannerMessage = await fetchBannerMessage();
+  const bannerSettings = await fetchBannerSettings();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html
       lang="es"
       className={`${libreCaslonText.variable} ${hankenGrotesk.variable}`}
     >
       <body className="min-h-screen antialiased font-body">
-        <WhatsAppBanner message={bannerMessage} />
-        {children}
+        {bannerSettings.enabled && (
+          <WhatsAppBanner message={bannerSettings.message} />
+        )}
+        <CartProvider>
+          <SiteHeader isLoggedIn={Boolean(user)} />
+          {children}
+        </CartProvider>
         <SocialLinks />
         <Analytics />
       </body>

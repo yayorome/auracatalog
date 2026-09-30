@@ -1,11 +1,37 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { AddToCart } from "@/components/add-to-cart";
+import { BackLink } from "@/components/back-link";
 import { ProductImage } from "@/components/product-image";
 import { formatPrice } from "@/lib/format";
 import { fetchProduct } from "@/lib/products";
 
 export const revalidate = 30;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const product = await fetchProduct(id);
+  if (!product) return {};
+
+  const title = product.brand ? `${product.name} — ${product.brand}` : product.name;
+  const description =
+    product.description ?? `Descubre ${product.name} en Aura Research Parfums.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
+    },
+  };
+}
 
 export default async function ProductDetailPage({
   params,
@@ -18,13 +44,7 @@ export default async function ProductDetailPage({
 
   return (
     <div className="mx-auto max-w-[720px] px-5 py-6 md:px-16">
-      <Link
-        href="/"
-        aria-label="Volver al catálogo"
-        className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full text-aura-on-surface hover:bg-aura-surface-container"
-      >
-        <BackArrowIcon className="h-5 w-5" />
-      </Link>
+      <BackLink href="/" label="Volver al catálogo" />
 
       <main>
       {product.imageUrl && (
@@ -104,26 +124,10 @@ export default async function ProductDetailPage({
             </ul>
           </div>
         )}
+
+        <AddToCart product={product} />
       </div>
       </main>
     </div>
-  );
-}
-
-function BackArrowIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
   );
 }

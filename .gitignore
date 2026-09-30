@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase CLI local link state
+supabase/.temp
+
+# SEPOMEX postal code catalog dump (large third-party data, not source —
+# see scripts/import-postal-codes.mjs)
+/sepomex.txt

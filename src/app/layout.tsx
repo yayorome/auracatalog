@@ -6,6 +6,7 @@ import { SocialLinks } from "@/components/social-links";
 import { WhatsAppBanner } from "@/components/whatsapp-banner";
 import { SiteHeader } from "@/components/site-header";
 import { CartProvider } from "@/lib/cart-context";
+import { RecoveryHashRedirect } from "@/components/recovery-hash-redirect";
 import { fetchBannerSettings } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { siteUrl } from "@/lib/site-url";
@@ -45,6 +46,7 @@ export default async function RootLayout({
         {bannerSettings.enabled && (
           <WhatsAppBanner message={bannerSettings.message} />
         )}
+        <RecoveryHashRedirect />
         <CartProvider>
           <SiteHeader isLoggedIn={Boolean(user)} />
           {children}

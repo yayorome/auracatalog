@@ -138,7 +138,7 @@ export async function requestPasswordResetAction(
   // email" message so this form can't be used to test which addresses
   // have an account, same reasoning as registerAction's checkEmail state.
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl()}/reset-password`,
+    redirectTo: `${siteUrl()}/auth/callback?next=/reset-password`,
   });
 
   return { error: null, checkEmail: true };

@@ -76,6 +76,7 @@ export async function registerAction(
     email,
     password,
     options: {
+      emailRedirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
       data: {
         account_type: "customer",
         full_name: fullName,

@@ -5,6 +5,15 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export async function middleware(request: NextRequest) {
+  // Signup emails sent before emailRedirectTo was set land on "/?code=...";
+  // forward those to the callback so the code still gets exchanged.
+  const { pathname, searchParams } = request.nextUrl;
+  if (pathname === "/" && searchParams.has("code")) {
+    const callback = request.nextUrl.clone();
+    callback.pathname = "/auth/callback";
+    return NextResponse.redirect(callback);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(url, anonKey, {

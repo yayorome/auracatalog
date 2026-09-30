@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { formatPrice } from "@/lib/format";
 import type { Product, ProductVariant } from "@/lib/products";
+import { FloatingCartButton } from "@/components/floating-cart-button";
 import { ProductImage } from "@/components/product-image";
 import { useCart } from "@/lib/cart-context";
 
@@ -83,6 +84,7 @@ export function CatalogView({ products }: { products: Product[] }) {
           </>
         )}
       </main>
+      <FloatingCartButton />
     </div>
   );
 }

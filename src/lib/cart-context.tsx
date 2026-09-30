@@ -46,15 +46,26 @@ const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = "aura-cart";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  // Lazy initializer (not an effect) so the client's first render already
-  // has the persisted cart — this component is client-only in practice
-  // (nothing server-rendered depends on cart contents), so there's no
-  // hydration mismatch to guard against.
-  const [items, setItems] = useState<CartItem[]>(readStoredCart);
+  // Start empty on both server and client so hydration matches the
+  // server-rendered markup, then load the persisted cart after mount. (Reading
+  // localStorage in the initial state made the client render differ from the
+  // server HTML, and React does not patch mismatched text/attributes, so the
+  // badge stayed hidden after a refresh.)
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setItems(readStoredCart());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    // Don't persist before the stored cart has loaded, or the initial empty
+    // state would overwrite it.
+    if (!hydrated) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+  }, [items, hydrated]);
 
   const addItem = useCallback<CartContextValue["addItem"]>(
     (item, quantity = 1) => {

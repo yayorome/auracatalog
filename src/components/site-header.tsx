@@ -22,6 +22,9 @@ export function SiteHeader({ isLoggedIn }: { isLoggedIn: boolean }) {
       </Link>
 
       <div className="flex items-center gap-4">
+      <Link href="/" className="text-aura-on-surface hover:underline">
+        Catálogo
+      </Link>
       {isLoggedIn ? (
         <>
           <Link href="/account/orders" className="text-aura-on-surface hover:underline">
@@ -71,7 +74,7 @@ export function SiteHeader({ isLoggedIn }: { isLoggedIn: boolean }) {
   );
 }
 
-function CartIcon({ className }: { className?: string }) {
+export function CartIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"

@@ -14,8 +14,18 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(`${origin}${safeNext}`);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      // Supabase drops the ?next= query when the allow-listed Redirect URL has
+      // no wildcard, so a recovery link can arrive here without it. A
+      // recovery_sent_at within the last hour identifies that case.
+      const sentAt = data.user?.recovery_sent_at;
+      const isRecovery =
+        sentAt && Date.now() - new Date(sentAt).getTime() < 60 * 60 * 1000;
+      return NextResponse.redirect(
+        `${origin}${isRecovery ? "/reset-password" : safeNext}`
+      );
+    }
   }
 
   return NextResponse.redirect(`${origin}/login?error=confirm`);

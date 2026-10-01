@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createPreference } from "@/lib/mercadopago";
 import { computeShippingCost } from "@/lib/shipping";
+import { fetchFreeShippingThreshold } from "@/lib/settings";
 import { discardSale as discardAbandonedSale } from "@/lib/discard-sale";
 import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
 import { siteUrl } from "@/lib/site-url";
@@ -201,7 +202,7 @@ export async function createCheckoutAction(
     .select("line_total")
     .eq("sale_id", sale.id);
   const subtotal = (items ?? []).reduce((sum, i) => sum + Number(i.line_total), 0);
-  const shippingCost = computeShippingCost(subtotal);
+  const shippingCost = computeShippingCost(subtotal, await fetchFreeShippingThreshold());
   const total = subtotal + shippingCost;
 
   // sales.subtotal/total are protected columns (sales_prevent_protected_update

@@ -4,12 +4,12 @@ import Link from "next/link";
 
 import { useCart } from "@/lib/cart-context";
 import { formatPrice } from "@/lib/format";
-import { computeShippingCost, FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { computeShippingCost } from "@/lib/shipping";
 import { ProductImage } from "@/components/product-image";
 
-export function CartView() {
+export function CartView({ freeShippingThreshold }: { freeShippingThreshold: number }) {
   const { items, subtotal, updateQuantity, removeItem } = useCart();
-  const shippingCost = computeShippingCost(subtotal);
+  const shippingCost = computeShippingCost(subtotal, freeShippingThreshold);
 
   if (items.length === 0) {
     return (
@@ -88,7 +88,7 @@ export function CartView() {
         </div>
         {shippingCost > 0 && (
           <p className="text-xs text-aura-on-surface-variant">
-            Te faltan {formatPrice(FREE_SHIPPING_THRESHOLD - subtotal, items[0].currency)} para
+            Te faltan {formatPrice(freeShippingThreshold - subtotal, items[0].currency)} para
             envío gratis.
           </p>
         )}

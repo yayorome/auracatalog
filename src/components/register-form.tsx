@@ -27,18 +27,33 @@ export function RegisterForm({ next }: { next: string }) {
   const municipalityRef = useRef<HTMLInputElement>(null);
   const cityRef = useRef<HTMLInputElement>(null);
   const stateRef = useRef<HTMLInputElement>(null);
+  // Municipio/ciudad/estado come from the CP catalog: once autofilled they're
+  // locked, and the colonia select is only usable when the CP has several.
+  const [locked, setLocked] = useState({
+    municipality: false,
+    city: false,
+    state: false,
+  });
 
   async function lookupAndFill(cp: string) {
     const info = await lookupPostalCodeAction(cp);
     if (!info) {
       setColonias([]);
       setNeighborhood("");
+      setLocked({ municipality: false, city: false, state: false });
       setPostalCodeHint("Código postal no encontrado.");
       return;
     }
     setPostalCodeHint(null);
     setColonias(info.colonias);
-    setNeighborhood((prev) => (info.colonias.includes(prev) ? prev : ""));
+    setNeighborhood((prev) =>
+      info.colonias.length === 1 ? info.colonias[0] : info.colonias.includes(prev) ? prev : ""
+    );
+    setLocked({
+      municipality: Boolean(info.municipio),
+      city: Boolean(info.city),
+      state: Boolean(info.estado),
+    });
     if (municipalityRef.current) municipalityRef.current.value = info.municipio;
     if (cityRef.current) cityRef.current.value = info.city ?? "";
     if (stateRef.current) stateRef.current.value = info.estado;
@@ -51,6 +66,7 @@ export function RegisterForm({ next }: { next: string }) {
     if (trimmed.length !== 5) {
       setColonias([]);
       setNeighborhood("");
+      setLocked({ municipality: false, city: false, state: false });
       setPostalCodeHint(null);
       return;
     }
@@ -154,7 +170,7 @@ export function RegisterForm({ next }: { next: string }) {
             name="neighborhood"
             value={neighborhood}
             onChange={(e) => setNeighborhood(e.target.value)}
-            disabled={colonias.length === 0}
+            disabled={colonias.length <= 1}
             required
           >
             <option value="" disabled>
@@ -166,9 +182,11 @@ export function RegisterForm({ next }: { next: string }) {
               </option>
             ))}
           </SelectField>
+          {colonias.length === 1 && <input type="hidden" name="neighborhood" value={neighborhood} />}
           <Field
             label="Municipio/Alcaldía"
             name="municipality"
+            readOnly={locked.municipality}
             autoComplete="off"
             inputRef={municipalityRef}
             required
@@ -176,6 +194,7 @@ export function RegisterForm({ next }: { next: string }) {
           <Field
             label="Ciudad"
             name="city"
+            readOnly={locked.city}
             autoComplete="address-level2"
             inputRef={cityRef}
             required
@@ -183,6 +202,7 @@ export function RegisterForm({ next }: { next: string }) {
           <Field
             label="Estado"
             name="state"
+            readOnly={locked.state}
             autoComplete="address-level1"
             inputRef={stateRef}
             required
@@ -235,7 +255,7 @@ function Field({
         ref={inputRef}
         name={name}
         type={type}
-        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline"
+        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline read-only:cursor-not-allowed read-only:opacity-60"
         {...rest}
       />
     </label>

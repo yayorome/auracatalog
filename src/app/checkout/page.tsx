@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CheckoutForm } from "@/components/checkout-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lookupPostalCode } from "@/lib/postal-code";
+import { fetchFreeShippingThreshold } from "@/lib/settings";
 
 export default async function CheckoutPage() {
   const supabase = await createSupabaseServerClient();
@@ -23,12 +24,18 @@ export default async function CheckoutPage() {
     ? await lookupPostalCode(supabase, client.postal_code)
     : null;
 
+  const freeShippingThreshold = await fetchFreeShippingThreshold();
+
   return (
     <div className="mx-auto max-w-[640px] px-5 py-6 md:px-16">
       <h1 className="mb-6 font-headline text-3xl text-aura-on-surface">
         Pagar
       </h1>
-      <CheckoutForm client={client} initialColonias={postalCodeInfo?.colonias ?? []} />
+      <CheckoutForm
+        client={client}
+        initialColonias={postalCodeInfo?.colonias ?? []}
+        freeShippingThreshold={freeShippingThreshold}
+      />
     </div>
   );
 }

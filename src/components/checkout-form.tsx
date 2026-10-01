@@ -6,7 +6,7 @@ import { useCart } from "@/lib/cart-context";
 import { formatPrice } from "@/lib/format";
 import { createCheckoutAction, type CheckoutActionState } from "@/lib/checkout-actions";
 import { lookupPostalCodeAction } from "@/lib/postal-code-actions";
-import { computeShippingCost, FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { computeShippingCost } from "@/lib/shipping";
 import { formatAddressLines } from "@/lib/format-address";
 import type { ClientProfile } from "@/lib/customer";
 
@@ -15,9 +15,11 @@ const initialState: CheckoutActionState = { error: null };
 export function CheckoutForm({
   client,
   initialColonias = [],
+  freeShippingThreshold,
 }: {
   client: ClientProfile | null;
   initialColonias?: string[];
+  freeShippingThreshold: number;
 }) {
   const { items, subtotal } = useCart();
   const [state, formAction, pending] = useActionState(
@@ -30,23 +32,40 @@ export function CheckoutForm({
 
   const [postalCode, setPostalCode] = useState(client?.postal_code ?? "");
   const [colonias, setColonias] = useState<string[]>(initialColonias);
-  const [neighborhood, setNeighborhood] = useState(client?.neighborhood ?? "");
+  const [neighborhood, setNeighborhood] = useState(
+    client?.neighborhood || (initialColonias.length === 1 ? initialColonias[0] : "")
+  );
   const [postalCodeHint, setPostalCodeHint] = useState<string | null>(null);
   const municipalityRef = useRef<HTMLInputElement>(null);
   const cityRef = useRef<HTMLInputElement>(null);
   const stateRef = useRef<HTMLInputElement>(null);
+  // Municipio/ciudad/estado come from the CP catalog: once autofilled they're
+  // locked, and the colonia select is only usable when the CP has several.
+  const [locked, setLocked] = useState({
+    municipality: initialColonias.length > 0 && Boolean(client?.municipality),
+    city: initialColonias.length > 0 && Boolean(client?.city),
+    state: initialColonias.length > 0 && Boolean(client?.state),
+  });
 
   async function lookupAndFill(cp: string) {
     const info = await lookupPostalCodeAction(cp);
     if (!info) {
       setColonias([]);
       setNeighborhood("");
+      setLocked({ municipality: false, city: false, state: false });
       setPostalCodeHint("Código postal no encontrado.");
       return;
     }
     setPostalCodeHint(null);
     setColonias(info.colonias);
-    setNeighborhood((prev) => (info.colonias.includes(prev) ? prev : ""));
+    setNeighborhood((prev) =>
+      info.colonias.length === 1 ? info.colonias[0] : info.colonias.includes(prev) ? prev : ""
+    );
+    setLocked({
+      municipality: Boolean(info.municipio),
+      city: Boolean(info.city),
+      state: Boolean(info.estado),
+    });
     if (municipalityRef.current) municipalityRef.current.value = info.municipio;
     if (cityRef.current) cityRef.current.value = info.city ?? "";
     if (stateRef.current) stateRef.current.value = info.estado;
@@ -59,6 +78,7 @@ export function CheckoutForm({
     if (trimmed.length !== 5) {
       setColonias([]);
       setNeighborhood("");
+      setLocked({ municipality: false, city: false, state: false });
       setPostalCodeHint(null);
       return;
     }
@@ -69,7 +89,7 @@ export function CheckoutForm({
     return <p className="text-aura-on-surface-variant">Tu carrito está vacío.</p>;
   }
 
-  const shippingCost = computeShippingCost(subtotal);
+  const shippingCost = computeShippingCost(subtotal, freeShippingThreshold);
   const total = subtotal + shippingCost;
 
   const cartPayload = JSON.stringify(
@@ -115,9 +135,9 @@ export function CheckoutForm({
             <input type="hidden" name="interiorNumber" value={client!.interior_number ?? ""} />
             <input type="hidden" name="neighborhood" value={client!.neighborhood ?? ""} />
             <input type="hidden" name="postalCode" value={client!.postal_code ?? ""} />
-            <input type="hidden" name="municipality" value={client!.municipality ?? ""} />
-            <input type="hidden" name="city" value={client!.city ?? ""} />
-            <input type="hidden" name="state" value={client!.state ?? ""} />
+            <input type="hidden" name="municipality" readOnly={locked.municipality} value={client!.municipality ?? ""} />
+            <input type="hidden" name="city" readOnly={locked.city} value={client!.city ?? ""} />
+            <input type="hidden" name="state" readOnly={locked.state} value={client!.state ?? ""} />
           </div>
         ) : (
           <div className="mt-3">
@@ -161,7 +181,7 @@ export function CheckoutForm({
                 name="neighborhood"
                 value={neighborhood}
                 onChange={(e) => setNeighborhood(e.target.value)}
-                disabled={colonias.length === 0}
+                disabled={colonias.length <= 1}
               >
                 <option value="" disabled>
                   {colonias.length === 0 ? "Ingresa tu código postal" : "Selecciona tu colonia"}
@@ -172,6 +192,7 @@ export function CheckoutForm({
                   </option>
                 ))}
               </SelectField>
+              {colonias.length === 1 && <input type="hidden" name="neighborhood" value={neighborhood} />}
               <Field
                 label="Municipio/Alcaldía"
                 name="municipality"
@@ -198,7 +219,7 @@ export function CheckoutForm({
         </div>
         {shippingCost > 0 && (
           <p className="text-xs text-aura-on-surface-variant">
-            Envío gratis en pedidos de {formatPrice(FREE_SHIPPING_THRESHOLD, items[0].currency)} o más.
+            Envío gratis en pedidos de {formatPrice(freeShippingThreshold, items[0].currency)} o más.
           </p>
         )}
         <div className="mt-1 flex items-center justify-between">
@@ -252,7 +273,7 @@ function Field({
         ref={inputRef}
         name={name}
         type={type}
-        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline"
+        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline read-only:cursor-not-allowed read-only:opacity-60"
         {...rest}
       />
     </label>

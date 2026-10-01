@@ -22,23 +22,40 @@ export function AccountForm({
 
   const [postalCode, setPostalCode] = useState(client.postal_code ?? "");
   const [colonias, setColonias] = useState<string[]>(initialColonias);
-  const [neighborhood, setNeighborhood] = useState(client.neighborhood ?? "");
+  const [neighborhood, setNeighborhood] = useState(
+    client.neighborhood || (initialColonias.length === 1 ? initialColonias[0] : "")
+  );
   const [postalCodeHint, setPostalCodeHint] = useState<string | null>(null);
   const municipalityRef = useRef<HTMLInputElement>(null);
   const cityRef = useRef<HTMLInputElement>(null);
   const stateRef = useRef<HTMLInputElement>(null);
+  // Municipio/ciudad/estado come from the CP catalog: once autofilled they're
+  // locked, and the colonia select is only usable when the CP has several.
+  const [locked, setLocked] = useState({
+    municipality: initialColonias.length > 0 && Boolean(client.municipality),
+    city: initialColonias.length > 0 && Boolean(client.city),
+    state: initialColonias.length > 0 && Boolean(client.state),
+  });
 
   async function lookupAndFill(cp: string) {
     const info = await lookupPostalCodeAction(cp);
     if (!info) {
       setColonias([]);
       setNeighborhood("");
+      setLocked({ municipality: false, city: false, state: false });
       setPostalCodeHint("Código postal no encontrado.");
       return;
     }
     setPostalCodeHint(null);
     setColonias(info.colonias);
-    setNeighborhood((prev) => (info.colonias.includes(prev) ? prev : ""));
+    setNeighborhood((prev) =>
+      info.colonias.length === 1 ? info.colonias[0] : info.colonias.includes(prev) ? prev : ""
+    );
+    setLocked({
+      municipality: Boolean(info.municipio),
+      city: Boolean(info.city),
+      state: Boolean(info.estado),
+    });
     if (municipalityRef.current) municipalityRef.current.value = info.municipio;
     if (cityRef.current) cityRef.current.value = info.city ?? "";
     if (stateRef.current) stateRef.current.value = info.estado;
@@ -51,6 +68,7 @@ export function AccountForm({
     if (trimmed.length !== 5) {
       setColonias([]);
       setNeighborhood("");
+      setLocked({ municipality: false, city: false, state: false });
       setPostalCodeHint(null);
       return;
     }
@@ -80,7 +98,7 @@ export function AccountForm({
           name="neighborhood"
           value={neighborhood}
           onChange={(e) => setNeighborhood(e.target.value)}
-          disabled={colonias.length === 0}
+          disabled={colonias.length <= 1}
         >
           <option value="" disabled>
             {colonias.length === 0 ? "Ingresa tu código postal" : "Selecciona tu colonia"}
@@ -91,14 +109,16 @@ export function AccountForm({
             </option>
           ))}
         </SelectField>
+        {colonias.length === 1 && <input type="hidden" name="neighborhood" value={neighborhood} />}
         <Field
           label="Municipio/Alcaldía"
           name="municipality"
+          readOnly={locked.municipality}
           defaultValue={client.municipality ?? ""}
           inputRef={municipalityRef}
         />
-        <Field label="Ciudad" name="city" defaultValue={client.city ?? ""} inputRef={cityRef} />
-        <Field label="Estado" name="state" defaultValue={client.state ?? ""} inputRef={stateRef} />
+        <Field label="Ciudad" name="city" readOnly={locked.city} defaultValue={client.city ?? ""} inputRef={cityRef} />
+        <Field label="Estado" name="state" readOnly={locked.state} defaultValue={client.state ?? ""} inputRef={stateRef} />
       </div>
 
       {state.error && (
@@ -142,7 +162,7 @@ function Field({
         ref={inputRef}
         name={name}
         type={type}
-        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline"
+        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline read-only:cursor-not-allowed read-only:opacity-60"
         {...rest}
       />
     </label>

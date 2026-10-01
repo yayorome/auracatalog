@@ -13,14 +13,22 @@ export interface PostalCodeInfo {
 // (account-actions.ts) — postal_codes has a public SELECT policy so both work.
 export async function lookupPostalCode(
   supabase: SupabaseClient,
-  postalCode: string
+  postalCode: string,
+  { throwOnError = false }: { throwOnError?: boolean } = {}
 ): Promise<PostalCodeInfo | null> {
   const { data, error } = await supabase
     .from("postal_codes")
     .select("estado, municipio, city, colonia")
     .eq("postal_code", postalCode);
 
-  if (error || !data || data.length === 0) return null;
+  if (error) {
+    console.error("[postal-code] lookup failed", postalCode, error);
+    // Callers that render a "CP no existe" message pass throwOnError so a
+    // failed query (bad key, network) isn't reported as a nonexistent CP.
+    if (throwOnError) throw new Error("POSTAL_CODE_LOOKUP_FAILED");
+    return null;
+  }
+  if (!data || data.length === 0) return null;
 
   return {
     estado: data[0].estado,

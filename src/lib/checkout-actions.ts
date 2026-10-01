@@ -91,7 +91,12 @@ export async function createCheckoutAction(
   // Cross-check against the SEPOMEX catalog (scripts/import-postal-codes.mjs)
   // so orders can't be placed against a nonexistent postal code or a
   // colonia that doesn't actually belong to it.
-  const postalCodeInfo = await lookupPostalCode(supabaseAdmin, postalCode);
+  let postalCodeInfo;
+  try {
+    postalCodeInfo = await lookupPostalCode(supabaseAdmin, postalCode, { throwOnError: true });
+  } catch {
+    return { error: "No pudimos validar tu código postal. Intenta de nuevo en unos minutos." };
+  }
   if (!postalCodeInfo) {
     return { error: "El código postal no existe." };
   }

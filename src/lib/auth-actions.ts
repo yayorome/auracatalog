@@ -64,7 +64,12 @@ export async function registerAction(
 
   const supabase = await createSupabaseServerClient();
 
-  const postalCodeInfo = await lookupPostalCode(supabase, postalCode);
+  let postalCodeInfo;
+  try {
+    postalCodeInfo = await lookupPostalCode(supabase, postalCode, { throwOnError: true });
+  } catch {
+    return { error: "No pudimos validar tu código postal. Intenta de nuevo en unos minutos." };
+  }
   if (!postalCodeInfo) {
     return { error: "El código postal no existe." };
   }

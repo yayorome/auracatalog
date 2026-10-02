@@ -1,8 +1,8 @@
-@AGENTS.md
+@[Next.js Rules](AGENTS.md)
 
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides architecture context and guidelines for Google Antigravity (AGY) when working with code in this repository.
 
 ## Product overview
 
@@ -17,7 +17,7 @@ This app was originally built in Flutter (web/mobile) and was rewritten from scr
 
 - **Next.js 16** (App Router, Turbopack, React 19), TypeScript
 - **Tailwind CSS v4** — theme tokens defined as CSS custom properties in `src/app/globals.css` (`@theme inline` block), not a `tailwind.config.js`
-- **Supabase** — Postgres + Storage + Auth. Server Components/Actions read with the anon key via a cookie-bound `@supabase/ssr` client (`src/lib/supabase/server.ts`) so RLS applies as the logged-in customer; the checkout Server Action and the Mercado Pago webhook route use a service-role client (`src/lib/supabase/admin.ts`) that bypasses RLS entirely — never import that one into anything reachable from a Client Component. Connected via the `supabase` MCP server (`.mcp.json`, project ref `eumvtvjnutxoxazaptcr`) for schema/database work.
+- **Supabase** — Postgres + Storage + Auth. Server Components/Actions read with the anon key via a cookie-bound `@supabase/ssr` client (`src/lib/supabase/server.ts`) so RLS applies as the logged-in customer; the checkout Server Action and the Mercado Pago webhook route use a service-role client (`src/lib/supabase/admin.ts`) that bypasses RLS entirely — never import that one into anything reachable from a Client Component. Connected via the `supabase` MCP server (`.agents/plugins/supabase/mcp_config.json` or `~/.gemini/config/mcp_config.json`, project ref `eumvtvjnutxoxazaptcr`) for schema/database work.
 - **Mercado Pago Checkout Pro** — hosted payment link API, via the official `mercadopago` Node SDK (`src/lib/mercadopago.ts`). See "Customer accounts, cart, and Mercado Pago checkout" below.
 - **Vercel** — deployment target, zero-config (Next.js is auto-detected; no `vercel.json` needed)
 
@@ -28,10 +28,10 @@ This app was originally built in Flutter (web/mobile) and was rewritten from scr
 ```bash
 npm install       # install deps
 npm run dev        # dev server (Turbopack), http://localhost:3000
-npm run build        # production build — treat as the source of truth over `next dev`/tsc for whether routing/types are correct
-npm run start          # serve the production build locally
-npm run lint             # eslint
-npx tsc --noEmit           # type-check only, faster than a full build during iteration
+npm run build      # production build — treat as the source of truth over `next dev`/tsc for whether routing/types are correct
+npm run start      # serve the production build locally
+npm run lint       # eslint
+npx tsc --noEmit   # type-check only, faster than a full build during iteration
 ```
 
 `npx tsc --noEmit` fails with `Cannot find name 'LayoutProps'` (or `PageProps`) on a fresh checkout — those types are generated into `.next/types/` by `next build`/`next dev`, not shipped by the `next` package itself. Run `npm run build` or `npm run dev` once first if you hit this; it's not a real type error.
@@ -122,8 +122,10 @@ Per a `frontend-design` skill review, the page had no distinctive moment tied to
 
 `globals.css` has a single `@media (prefers-reduced-motion: reduce)` block that zeroes out `animation-duration`/`transition-duration` globally (the pattern from the `accessibility` skill), covering the grid's stagger fade-in (`.animate-fade-in-up`) and the image hover-zoom (`ProductImage`'s `zoomOnHover`) alike. New animations/transitions don't need their own `motion-reduce:` variant — the global rule already catches them — but avoid working around it with `!important` overrides or inline styles that would defeat it.
 
-## Workflow notes
+## Antigravity Workflow & Customizations
 
-- Use the `supabase` MCP tools for schema/database work (check `list_tables` before making schema changes; apply changes via `apply_migration`; run `get_advisors` after every schema change).
-- Before writing any Next.js code, skim the relevant page under `node_modules/next/dist/docs/01-app/` — this version is newer than most training data and the on-disk docs are the authority (see the warning imported at the top of this file via `@AGENTS.md`).
-- Design/quality skills installed at `~/.agents/skills/{frontend-design,vercel-react-best-practices,accessibility}` (global, via `npx skills add`) — reread them before a visual redesign, a performance pass, or an accessibility audit rather than re-deriving the guidance from scratch.
+- **Rules**: Antigravity automatically discovers and enforces `GEMINI.md` and `AGENTS.md` (Next.js 16 agent rules).
+- **MCP Servers**: Supabase MCP is configured in `.agents/plugins/supabase/mcp_config.json` and globally in `~/.gemini/config/mcp_config.json`. Use Supabase MCP tools for database schema, migrations (`apply_migration`), and advisors (`get_advisors`).
+- **Skills**: Project skills live in `.agents/skills/` (`find-skills`, `production-ready`). Global skills available in `~/.agents/skills/` (`frontend-design`, `vercel-react-best-practices`, `accessibility`).
+- **Subagents**: Use the `research` subagent when surveying large documentation or unfamiliar libraries to keep the main conversation context clean.
+- **Before coding**: Review Next.js on-disk documentation under `node_modules/next/dist/docs/01-app/` whenever using App Router APIs.

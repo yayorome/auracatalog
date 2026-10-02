@@ -24,4 +24,4 @@ npm run start    # run the production build locally
 npm run lint     # eslint
 ```
 
-See `CLAUDE.md` for architecture notes and the Supabase schema this app reads from.
+See [GEMINI.md](GEMINI.md) for architecture notes and the Supabase schema this app reads from.

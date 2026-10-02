@@ -1,0 +1,4 @@
+{
+  "name": "supabase",
+  "description": "Supabase MCP integration for Aura Research Parfums (database schema, migrations, storage, and auth)."
+}

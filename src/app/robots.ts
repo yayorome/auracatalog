@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       // Account/cart/checkout are per-customer, never worth indexing, and
       // checkout/mock only exists for local dev (404s once MP_ACCESS_TOKEN is
-      // set — see CLAUDE.md — but excluding it here costs nothing either way).
+      // set — see GEMINI.md — but excluding it here costs nothing either way).
       disallow: ["/account", "/cart", "/checkout", "/api/"],
     },
     sitemap: `${siteUrl()}/sitemap.xml`,

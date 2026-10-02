@@ -17,6 +17,7 @@ export function SiteHeader({ isLoggedIn }: { isLoggedIn: boolean }) {
           alt="Aura Research Parfums"
           width={1143}
           height={1136}
+          priority
           className="h-9 w-auto"
         />
       </Link>

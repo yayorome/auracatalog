@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import Link from "next/link";
+import { useActionState, useState } from "react";
 
 import { useCart } from "@/lib/cart-context";
 import { formatPrice } from "@/lib/format";
@@ -14,10 +15,12 @@ const initialState: CheckoutActionState = { error: null };
 
 export function CheckoutForm({
   client,
+  isLoggedIn = false,
   initialColonias = [],
   freeShippingThreshold,
 }: {
   client: ClientProfile | null;
+  isLoggedIn?: boolean;
   initialColonias?: string[];
   freeShippingThreshold: number;
 }) {
@@ -30,29 +33,31 @@ export function CheckoutForm({
   const hasSavedAddress = Boolean(client?.street && client?.postal_code);
   const [useDifferentAddress, setUseDifferentAddress] = useState(!hasSavedAddress);
 
+  // Controlled form state ensures fields are never wiped if an error occurs during checkout
+  const [name, setName] = useState(client?.name ?? "");
+  const [email, setEmail] = useState(client?.email ?? "");
+  const [phone, setPhone] = useState(client?.phone ?? "");
+  const [street, setStreet] = useState(client?.street ?? "");
+  const [exteriorNumber, setExteriorNumber] = useState(client?.exterior_number ?? "");
+  const [interiorNumber, setInteriorNumber] = useState(client?.interior_number ?? "");
   const [postalCode, setPostalCode] = useState(client?.postal_code ?? "");
   const [colonias, setColonias] = useState<string[]>(initialColonias);
   const [neighborhood, setNeighborhood] = useState(
     client?.neighborhood || (initialColonias.length === 1 ? initialColonias[0] : "")
   );
+  const [municipality, setMunicipality] = useState(client?.municipality ?? "");
+  const [city, setCity] = useState(client?.city ?? "");
+  const [stateName, setStateName] = useState(client?.state ?? "");
   const [postalCodeHint, setPostalCodeHint] = useState<string | null>(null);
-  const municipalityRef = useRef<HTMLInputElement>(null);
-  const cityRef = useRef<HTMLInputElement>(null);
-  const stateRef = useRef<HTMLInputElement>(null);
-  // Municipio/ciudad/estado come from the CP catalog: once autofilled they're
-  // locked, and the colonia select is only usable when the CP has several.
-  const [locked, setLocked] = useState({
-    municipality: initialColonias.length > 0 && Boolean(client?.municipality),
-    city: initialColonias.length > 0 && Boolean(client?.city),
-    state: initialColonias.length > 0 && Boolean(client?.state),
-  });
 
   async function lookupAndFill(cp: string) {
     const info = await lookupPostalCodeAction(cp);
     if (!info) {
       setColonias([]);
       setNeighborhood("");
-      setLocked({ municipality: false, city: false, state: false });
+      setMunicipality("");
+      setCity("");
+      setStateName("");
       setPostalCodeHint("Código postal no encontrado.");
       return;
     }
@@ -61,14 +66,9 @@ export function CheckoutForm({
     setNeighborhood((prev) =>
       info.colonias.length === 1 ? info.colonias[0] : info.colonias.includes(prev) ? prev : ""
     );
-    setLocked({
-      municipality: Boolean(info.municipio),
-      city: Boolean(info.city),
-      state: Boolean(info.estado),
-    });
-    if (municipalityRef.current) municipalityRef.current.value = info.municipio;
-    if (cityRef.current) cityRef.current.value = info.city ?? "";
-    if (stateRef.current) stateRef.current.value = info.estado;
+    setMunicipality(info.municipio);
+    setCity(info.city ?? "");
+    setStateName(info.estado);
   }
 
   function handlePostalCodeChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -78,7 +78,9 @@ export function CheckoutForm({
     if (trimmed.length !== 5) {
       setColonias([]);
       setNeighborhood("");
-      setLocked({ municipality: false, city: false, state: false });
+      setMunicipality("");
+      setCity("");
+      setStateName("");
       setPostalCodeHint(null);
       return;
     }
@@ -101,6 +103,16 @@ export function CheckoutForm({
       <input type="hidden" name="cart" value={cartPayload} />
       <input type="hidden" name="differentAddress" value={String(useDifferentAddress)} />
 
+      {!isLoggedIn && (
+        <div className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest p-3 text-sm text-aura-on-surface">
+          ¿Ya tienes una cuenta?{" "}
+          <Link href="/login?next=/checkout" className="font-medium underline hover:text-aura-primary">
+            Inicia sesión
+          </Link>{" "}
+          para usar tus datos y direcciones guardadas.
+        </div>
+      )}
+
       <section>
         <h2 className="mb-3 text-sm font-medium text-aura-on-surface-variant">
           DATOS DE ENVÍO
@@ -109,12 +121,26 @@ export function CheckoutForm({
           <Field
             label="Nombre completo"
             name="name"
-            defaultValue={client?.name ?? ""}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             required
             className="sm:col-span-2"
           />
-          <Field label="Teléfono" name="phone" type="tel" defaultValue={client?.phone ?? ""} />
-          <div />
+          <Field
+            label="Correo electrónico"
+            name="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <Field
+            label="Teléfono (opcional)"
+            name="phone"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
         </div>
 
         {hasSavedAddress && !useDifferentAddress ? (
@@ -135,9 +161,9 @@ export function CheckoutForm({
             <input type="hidden" name="interiorNumber" value={client!.interior_number ?? ""} />
             <input type="hidden" name="neighborhood" value={client!.neighborhood ?? ""} />
             <input type="hidden" name="postalCode" value={client!.postal_code ?? ""} />
-            <input type="hidden" name="municipality" readOnly={locked.municipality} value={client!.municipality ?? ""} />
-            <input type="hidden" name="city" readOnly={locked.city} value={client!.city ?? ""} />
-            <input type="hidden" name="state" readOnly={locked.state} value={client!.state ?? ""} />
+            <input type="hidden" name="municipality" value={client!.municipality ?? ""} />
+            <input type="hidden" name="city" value={client!.city ?? ""} />
+            <input type="hidden" name="state" value={client!.state ?? ""} />
           </div>
         ) : (
           <div className="mt-3">
@@ -154,15 +180,22 @@ export function CheckoutForm({
               <Field
                 label="Calle"
                 name="street"
-                defaultValue={client?.street ?? ""}
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
                 required
                 className="sm:col-span-2"
               />
-              <Field label="No. exterior" name="exteriorNumber" defaultValue={client?.exterior_number ?? ""} />
+              <Field
+                label="No. exterior"
+                name="exteriorNumber"
+                value={exteriorNumber}
+                onChange={(e) => setExteriorNumber(e.target.value)}
+              />
               <Field
                 label="No. interior (opcional)"
                 name="interiorNumber"
-                defaultValue={client?.interior_number ?? ""}
+                value={interiorNumber}
+                onChange={(e) => setInteriorNumber(e.target.value)}
               />
               <div className="flex flex-col gap-1">
                 <Field
@@ -196,11 +229,27 @@ export function CheckoutForm({
               <Field
                 label="Municipio/Alcaldía"
                 name="municipality"
-                defaultValue={client?.municipality ?? ""}
-                inputRef={municipalityRef}
+                value={municipality}
+                readOnly
+                tabIndex={-1}
+                placeholder="Se autocompleta con el C.P."
               />
-              <Field label="Ciudad" name="city" defaultValue={client?.city ?? ""} inputRef={cityRef} />
-              <Field label="Estado" name="state" defaultValue={client?.state ?? ""} inputRef={stateRef} />
+              <Field
+                label="Ciudad"
+                name="city"
+                value={city}
+                readOnly
+                tabIndex={-1}
+                placeholder="Se autocompleta con el C.P."
+              />
+              <Field
+                label="Estado"
+                name="state"
+                value={stateName}
+                readOnly
+                tabIndex={-1}
+                placeholder="Se autocompleta con el C.P."
+              />
             </div>
           </div>
         )}
@@ -257,23 +306,26 @@ function Field({
   name,
   type = "text",
   className,
-  inputRef,
+  readOnly,
   ...rest
 }: {
   label: string;
   name: string;
   type?: string;
   className?: string;
-  inputRef?: React.Ref<HTMLInputElement>;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className={`flex flex-col gap-1 text-sm text-aura-on-surface ${className ?? ""}`}>
       {label}
       <input
-        ref={inputRef}
         name={name}
         type={type}
-        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline read-only:cursor-not-allowed read-only:opacity-60"
+        readOnly={readOnly}
+        className={`rounded-aura-base border border-aura-outline-variant px-3 py-2 text-base outline-none focus:border-aura-outline ${
+          readOnly
+            ? "cursor-not-allowed bg-aura-surface-container text-aura-on-surface-variant select-none opacity-80"
+            : "bg-aura-surface-container-lowest"
+        }`}
         {...rest}
       />
     </label>

@@ -78,6 +78,7 @@ export function CatalogView({ products }: { products: Product[] }) {
                   key={product.id}
                   product={product}
                   delayMs={Math.min(index, 10) * 40}
+                  priority={index < 8}
                 />
               ))}
             </div>
@@ -140,9 +141,11 @@ function cheapestInStockVariant(product: Product): ProductVariant | null {
 function ProductCard({
   product,
   delayMs,
+  priority = false,
 }: {
   product: Product;
   delayMs: number;
+  priority?: boolean;
 }) {
   const cheapest = cheapestVariant(product);
   const quickAddVariant = cheapestInStockVariant(product);
@@ -191,6 +194,7 @@ function ProductCard({
           alt={product.name}
           sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
           zoomOnHover
+          priority={priority}
         />
       </div>
       <h3 className="mt-2 truncate text-base font-normal text-aura-on-surface">

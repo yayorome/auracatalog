@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-
 import { CheckoutForm } from "@/components/checkout-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lookupPostalCode } from "@/lib/postal-code";
@@ -10,15 +8,16 @@ export default async function CheckoutPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/checkout");
 
-  const { data: client } = await supabase
-    .from("clients")
-    .select(
-      "id, name, email, phone, street, exterior_number, interior_number, neighborhood, postal_code, municipality, city, state"
-    )
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { data: client } = user
+    ? await supabase
+        .from("clients")
+        .select(
+          "id, name, email, phone, street, exterior_number, interior_number, neighborhood, postal_code, municipality, city, state"
+        )
+        .eq("user_id", user.id)
+        .maybeSingle()
+    : { data: null };
 
   const postalCodeInfo = client?.postal_code
     ? await lookupPostalCode(supabase, client.postal_code)
@@ -33,6 +32,7 @@ export default async function CheckoutPage() {
       </h1>
       <CheckoutForm
         client={client}
+        isLoggedIn={Boolean(user)}
         initialColonias={postalCodeInfo?.colonias ?? []}
         freeShippingThreshold={freeShippingThreshold}
       />

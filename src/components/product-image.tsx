@@ -5,12 +5,16 @@ export function ProductImage({
   alt,
   sizes,
   zoomOnHover = false,
+  priority = false,
+  loading,
 }: {
   imageUrl: string | null;
   alt: string;
   sizes: string;
   /** Requires a `group` class on an ancestor (e.g. the card's <Link>). */
   zoomOnHover?: boolean;
+  priority?: boolean;
+  loading?: "eager" | "lazy";
 }) {
   if (!imageUrl) {
     return (
@@ -26,6 +30,8 @@ export function ProductImage({
       alt={alt}
       fill
       sizes={sizes}
+      priority={priority}
+      loading={loading ?? (priority ? "eager" : undefined)}
       className={
         zoomOnHover
           ? "object-cover transition-transform duration-500 group-hover:scale-105"

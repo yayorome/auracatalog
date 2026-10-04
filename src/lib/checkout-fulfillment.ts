@@ -5,10 +5,8 @@ import { sendOrderNotificationEmail, sendOrderReceiptEmail } from "@/lib/email";
 import { formatAddressLines, type AddressFields } from "@/lib/format-address";
 
 /**
- * Applies a Mercado Pago payment result to our own records. Shared by the
- * real webhook route and the local mock-checkout page (used when
- * MP_ACCESS_TOKEN isn't configured yet) so both paths exercise the same
- * fulfillment logic.
+ * Applies a Mercado Pago payment result to our own records. Invoked by the
+ * Mercado Pago webhook route handler when a payment notification is received.
  */
 export async function fulfillMercadoPagoPayment(
   saleId: string,
@@ -100,7 +98,7 @@ async function sendReceiptSafely(saleId: string) {
   const { data: sale } = await supabaseAdmin
     .from("sales")
     .select(
-      "id, currency, subtotal, shipping_cost, total, shipping_address, clients(email, name), sale_items(product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)"
+      "id, currency, subtotal, shipping_cost, discount_amount, coupon_code, total, shipping_address, client_email, client_name, clients(email, name), sale_items(product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)"
     )
     .eq("id", saleId)
     .single();
@@ -109,7 +107,7 @@ async function sendReceiptSafely(saleId: string) {
   // Supabase infers a belongs-to join like this as an array without
   // generated Database types on hand — it's always exactly one row here.
   const client = Array.isArray(sale.clients) ? sale.clients[0] : sale.clients;
-  const email = client?.email;
+  const email = client?.email ?? sale.client_email;
   const shippingAddress = sale.shipping_address as ShippingAddressSnapshot | null;
   const items = sale.sale_items.map((item) => ({
     name: item.product_name_snapshot,
@@ -125,10 +123,12 @@ async function sendReceiptSafely(saleId: string) {
     try {
       await sendOrderReceiptEmail({
         toEmail: email,
-        toName: shippingAddress?.name ?? client?.name ?? "",
+        toName: shippingAddress?.name ?? client?.name ?? sale.client_name ?? "",
         saleId: sale.id,
         currency: sale.currency,
         subtotal: Number(sale.subtotal),
+        discountAmount: Number(sale.discount_amount),
+        couponCode: sale.coupon_code,
         shippingCost: Number(sale.shipping_cost),
         total: Number(sale.total),
         items,

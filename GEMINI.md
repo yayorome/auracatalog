@@ -1,8 +1,8 @@
-@AGENTS.md
+@[Next.js Rules](AGENTS.md)
 
-# CLAUDE.md
+# GEMINI.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides architecture context and guidelines for Google Antigravity (AGY) when working with code in this repository.
 
 ## Product overview
 
@@ -17,7 +17,7 @@ This app was originally built in Flutter (web/mobile) and was rewritten from scr
 
 - **Next.js 16** (App Router, Turbopack, React 19), TypeScript
 - **Tailwind CSS v4** — theme tokens defined as CSS custom properties in `src/app/globals.css` (`@theme inline` block), not a `tailwind.config.js`
-- **Supabase** — Postgres + Storage + Auth. Server Components/Actions read with the anon key via a cookie-bound `@supabase/ssr` client (`src/lib/supabase/server.ts`) so RLS applies as the logged-in customer; the checkout Server Action and the Mercado Pago webhook route use a service-role client (`src/lib/supabase/admin.ts`) that bypasses RLS entirely — never import that one into anything reachable from a Client Component. Connected via the `supabase` MCP server (`.mcp.json`, project ref `eumvtvjnutxoxazaptcr`) for schema/database work.
+- **Supabase** — Postgres + Storage + Auth. Server Components/Actions read with the anon key via a cookie-bound `@supabase/ssr` client (`src/lib/supabase/server.ts`) so RLS applies as the logged-in customer; the checkout Server Action and the Mercado Pago webhook route use a service-role client (`src/lib/supabase/admin.ts`) that bypasses RLS entirely — never import that one into anything reachable from a Client Component. Connected via the `supabase` MCP server (`.agents/plugins/supabase/mcp_config.json` or `~/.gemini/config/mcp_config.json`, project ref `eumvtvjnutxoxazaptcr`) for schema/database work.
 - **Mercado Pago Checkout Pro** — hosted payment link API, via the official `mercadopago` Node SDK (`src/lib/mercadopago.ts`). See "Customer accounts, cart, and Mercado Pago checkout" below.
 - **Vercel** — deployment target, zero-config (Next.js is auto-detected; no `vercel.json` needed)
 
@@ -28,10 +28,10 @@ This app was originally built in Flutter (web/mobile) and was rewritten from scr
 ```bash
 npm install       # install deps
 npm run dev        # dev server (Turbopack), http://localhost:3000
-npm run build        # production build — treat as the source of truth over `next dev`/tsc for whether routing/types are correct
-npm run start          # serve the production build locally
-npm run lint             # eslint
-npx tsc --noEmit           # type-check only, faster than a full build during iteration
+npm run build      # production build — treat as the source of truth over `next dev`/tsc for whether routing/types are correct
+npm run start      # serve the production build locally
+npm run lint       # eslint
+npx tsc --noEmit   # type-check only, faster than a full build during iteration
 ```
 
 `npx tsc --noEmit` fails with `Cannot find name 'LayoutProps'` (or `PageProps`) on a fresh checkout — those types are generated into `.next/types/` by `next build`/`next dev`, not shipped by the `next` package itself. Run `npm run build` or `npm run dev` once first if you hit this; it's not a real type error.
@@ -43,7 +43,7 @@ SUPABASE_ANON_KEY=...
 NEXT_PUBLIC_SUPABASE_URL=...          # same project, exposed for browser auth (@supabase/ssr)
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...         # Settings > API > service_role — never NEXT_PUBLIC_
-MP_ACCESS_TOKEN=...                   # DevPanel → your app → Credentials (APP_USR-...); leave unset to use /checkout/mock locally
+MP_ACCESS_TOKEN=...                   # DevPanel → your app → Credentials → Access Token (APP_USR-...)
 MP_WEBHOOK_SECRET=...                 # DevPanel → your app → Webhooks → Signature secret
 RESEND_API_KEY=...                    # resend.com; leave unset to skip the paid-order receipt email (logs instead)
 RESEND_FROM_EMAIL=...                 # must be on a domain verified in the Resend dashboard
@@ -64,7 +64,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 - `src/lib/format.ts` — price formatting (`Intl.NumberFormat` with `currencyDisplay: "narrowSymbol"` so MXN/USD both render as `$`, matching the old Flutter app's `NumberFormat.simpleCurrency`).
 - `src/lib/supabase/{browser,server,admin,env}.ts` — the three Supabase client flavors used by the accounts/cart/checkout code (see below); `src/lib/supabase.ts` (no subfolder) is the original anon-only server client and is unrelated/unchanged.
 - `src/lib/cart-context.tsx` — client-side cart (`localStorage`, no login required to browse/add), mounted as `<CartProvider>` in `layout.tsx`.
-- `src/lib/{auth-actions,checkout-actions,account-actions,mock-checkout-actions}.ts` + `src/lib/checkout-fulfillment.ts` + `src/lib/mercadopago.ts` — Server Actions and the Mercado Pago SDK client backing register/login, checkout, account editing, and payment fulfillment.
+- `src/lib/{auth-actions,checkout-actions,account-actions}.ts` + `src/lib/checkout-fulfillment.ts` + `src/lib/mercadopago.ts` — Server Actions and the Mercado Pago SDK client backing register/login, checkout, account editing, and payment fulfillment.
 - `middleware.ts` — refreshes the Supabase auth cookie on every request; required for cookie-bound Server Components to see a valid session.
 
 ### Customer accounts, cart, and Mercado Pago checkout
@@ -77,12 +77,12 @@ Customer auth, cart, checkout, and order history were added on top of the origin
 - **Checkout writes go through the service-role client** (`src/lib/supabase/admin.ts`, bypasses RLS) instead of extending the seller-shaped `sales_insert_own` RLS policy to cover customers. Reads (order history, account page) go through the cookie-bound client and rely on additive RLS policies (`clients_select_own_customer`, `sales_select_own_customer`, etc.) scoped by `clients.user_id = auth.uid()` — every pre-existing owner/seller policy was left untouched.
 - **`sale_items_set_pricing`** (pre-existing trigger) fills `unit_price`/`line_total` from the live `product_variants.price` at insert time — the checkout action intentionally omits `unit_price` on insert so this trigger is the source of truth, not client-submitted cart prices. It does *not* check stock at insert; `mark_sale_paid()` (pre-existing RPC, reused as-is) enforces stock at payment-confirmation time and raises if insufficient.
 - **Mercado Pago integration** (`src/lib/mercadopago.ts`): Checkout Pro's hosted redirect flow via the official `mercadopago` Node SDK — `Preference.create()` (`POST /checkout/preferences`) returns `init_point`, which `checkout-actions.ts` redirects to. Always `init_point`, never `sandbox_init_point` — Mercado Pago has no separate sandbox; a test-user account's real `APP_USR-` credentials hit the same production API. `src/app/api/webhooks/mercadopago/route.ts` validates the `x-signature` header (HMAC-SHA256 against `MP_WEBHOOK_SECRET`) before trusting the notification at all, and even then does **not** trust the webhook body's own status field — it re-fetches the payment by id via `Payment.get()` and acts on that instead.
-- **`MP_ACCESS_TOKEN` unset → `/checkout/mock`**: `checkout-actions.ts` redirects there instead of calling Mercado Pago when the token isn't configured, so the full order flow (including `mark_sale_paid`/stock decrement/`inventory_movements`) can be exercised locally before real Mercado Pago credentials exist. It 404s once `MP_ACCESS_TOKEN` is set — don't remove this branch to "clean up"; it's the only way to test checkout without live credentials.
 - **`payments`** columns are named generically (`provider`, `provider_reference`, `provider_payment_id`) rather than Mercado-Pago-specific — `provider_reference` holds the preference id set at checkout time, `provider_payment_id` the actual payment id once a webhook confirms one. `provider` is `'mercado_pago'` for every row inserted by `checkout-actions.ts`.
 - **`sales.subtotal`/`total` are protected columns** — `sales_prevent_protected_update` (pre-existing trigger) rejects any update to them unless `app.allow_sale_status_update` is set, which only `mark_sale_paid()` did before this feature. `checkout-actions.ts` can't set the initial total with a plain `.update()` (found the hard way: it silently no-ops, leaving `total = 0` on every order) — it goes through a new `set_sale_pending_totals(p_sale_id, p_subtotal, p_total)` RPC (`service_role`-only) that sets the config flag first, mirroring `mark_sale_paid()`'s own pattern.
 - **`sales.shipping_address` (jsonb)** snapshots the address actually used for that order (name, phone, street, etc.) at checkout time, independent of `clients.*` which can change later — `checkout-form.tsx` lets a customer ship one order to a different address without overwriting their saved profile default; `checkout-actions.ts` only writes to `clients.*` when the customer wasn't using an explicitly-different address (or had no saved address yet).
-- **Shipping is a flat $150 MXN, free at or above `site_settings.free_shipping_threshold`** (row `id = 1`, read via `fetchFreeShippingThreshold()` in `src/lib/settings.ts`, falling back to 2500 if unreadable; the cart/checkout pages pass it to the client components as a prop) — `src/lib/shipping.ts`'s `computeShippingCost(subtotal, threshold)` is the single source of truth, used by `cart-view.tsx`/`checkout-form.tsx` (display) and `checkout-actions.ts` (charged amount, sent to Mercado Pago as part of `payments.amount`). Persisted on `sales.shipping_cost` — *not* one of `sales_prevent_protected_update`'s guarded columns, so it's set with a plain `.update()` (unlike `subtotal`/`total`, which go through `set_sale_pending_totals`). `mark_sale_paid()` was extended to add `shipping_cost` on top of the (possibly card-commission-adjusted) product subtotal when computing the final paid `total` — it doesn't get a discount from `card_commission_pct` the way the product subtotal does, since that's a pre-existing margin adjustment on product revenue, not something shipping should be discounted against.
-- **Paid-order receipt email** (`src/lib/email.ts`, via Resend): `checkout-fulfillment.ts`'s `fulfillMercadoPagoPayment()` sends it right after `mark_sale_paid()` succeeds — the one place both the real webhook and `/checkout/mock` funnel through. A send failure is caught and logged, never thrown, since the order is already paid and stock already decremented by that point. Requires `clients.email` — `checkout-actions.ts` blocks checkout with a clear error if it's missing (nullable in the schema for staff-added walk-in clients, but always required for a self-service order since there'd be nowhere to send the ticket). Without `RESEND_API_KEY`/`RESEND_FROM_EMAIL` set, it logs a warning instead of sending — same "degrade, don't fail the request" pattern as `/checkout/mock`.
+- **Shipping cost and free-shipping threshold are dynamically read from `site_settings`** (row `id = 1`, columns `shipping_cost` and `free_shipping_threshold`, read via `fetchShippingSettings()` in `src/lib/settings.ts`, falling back to 150 MXN shipping and 2500 MXN threshold if unreadable; the cart/checkout pages pass them to client components as props) — `src/lib/shipping.ts`'s `computeShippingCost(subtotal, threshold, shippingRate)` is the single source of truth, used by `cart-view.tsx`/`checkout-form.tsx` (display) and `checkout-actions.ts` (charged amount, sent to Mercado Pago as part of `payments.amount`). Persisted on `sales.shipping_cost` — *not* one of `sales_prevent_protected_update`'s guarded columns, so it's set with a plain `.update()` (unlike `subtotal`/`total`, which go through `set_sale_pending_totals`). `mark_sale_paid()` was extended to add `shipping_cost` on top of the (possibly card-commission-adjusted) product subtotal when computing the final paid `total` — it doesn't get a discount from `card_commission_pct` the way the product subtotal does, since that's a pre-existing margin adjustment on product revenue, not something shipping should be discounted against.
+- **Discount coupons (`coupons` table)**: Supports percentage (`'percentage'`, up to 100%) or fixed amounts (`'fixed'`). Configurable via `is_active` (boolean toggle), optional `min_order_amount`, `max_uses`, `uses_count`, and `expires_at`. Case-insensitive lookup (`lower(trim(code))`). In the checkout flow (`checkout-form.tsx`), a coupon can be entered, validated via `validateCouponAction` / `validateCoupon()` (`src/lib/coupons.ts`), and applied to the client view before payment. The server action `createCheckoutAction` (`src/lib/checkout-actions.ts`) re-validates the coupon against the true catalog subtotal, computes the final discount, and saves `coupon_id`, `coupon_code`, and `discount_amount` directly on `sales`. `mark_sale_paid()` was updated to subtract `discount_amount` from the subtotal when calculating the final paid total and atomically increments `coupons.uses_count`.
+- **Paid-order receipt email** (`src/lib/email.ts`, via Resend): `checkout-fulfillment.ts`'s `fulfillMercadoPagoPayment()` sends it right after `mark_sale_paid()` succeeds. A send failure is caught and logged, never thrown, since the order is already paid and stock already decremented by that point. Requires `clients.email` — `checkout-actions.ts` blocks checkout with a clear error if it's missing (nullable in the schema for staff-added walk-in clients, but always required for a self-service order since there'd be nowhere to send the ticket). Without `RESEND_API_KEY`/`RESEND_FROM_EMAIL` set, it logs a warning instead of sending.
 
 ### Data fetching model: classic revalidate, not Cache Components
 
@@ -122,8 +122,10 @@ Per a `frontend-design` skill review, the page had no distinctive moment tied to
 
 `globals.css` has a single `@media (prefers-reduced-motion: reduce)` block that zeroes out `animation-duration`/`transition-duration` globally (the pattern from the `accessibility` skill), covering the grid's stagger fade-in (`.animate-fade-in-up`) and the image hover-zoom (`ProductImage`'s `zoomOnHover`) alike. New animations/transitions don't need their own `motion-reduce:` variant — the global rule already catches them — but avoid working around it with `!important` overrides or inline styles that would defeat it.
 
-## Workflow notes
+## Antigravity Workflow & Customizations
 
-- Use the `supabase` MCP tools for schema/database work (check `list_tables` before making schema changes; apply changes via `apply_migration`; run `get_advisors` after every schema change).
-- Before writing any Next.js code, skim the relevant page under `node_modules/next/dist/docs/01-app/` — this version is newer than most training data and the on-disk docs are the authority (see the warning imported at the top of this file via `@AGENTS.md`).
-- Design/quality skills installed at `~/.agents/skills/{frontend-design,vercel-react-best-practices,accessibility}` (global, via `npx skills add`) — reread them before a visual redesign, a performance pass, or an accessibility audit rather than re-deriving the guidance from scratch.
+- **Rules**: Antigravity automatically discovers and enforces `GEMINI.md` and `AGENTS.md` (Next.js 16 agent rules).
+- **MCP Servers**: Supabase MCP is configured in `.agents/plugins/supabase/mcp_config.json` and globally in `~/.gemini/config/mcp_config.json`. Use Supabase MCP tools for database schema, migrations (`apply_migration`), and advisors (`get_advisors`).
+- **Skills**: Project skills live in `.agents/skills/` (`find-skills`, `production-ready`). Global skills available in `~/.agents/skills/` (`frontend-design`, `vercel-react-best-practices`, `accessibility`).
+- **Subagents**: Use the `research` subagent when surveying large documentation or unfamiliar libraries to keep the main conversation context clean.
+- **Before coding**: Review Next.js on-disk documentation under `node_modules/next/dist/docs/01-app/` whenever using App Router APIs.

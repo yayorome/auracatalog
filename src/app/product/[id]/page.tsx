@@ -53,6 +53,7 @@ export default async function ProductDetailPage({
             imageUrl={product.imageUrl}
             alt={product.name}
             sizes="720px"
+            priority
           />
         </div>
       )}

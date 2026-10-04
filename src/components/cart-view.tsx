@@ -7,9 +7,15 @@ import { formatPrice } from "@/lib/format";
 import { computeShippingCost } from "@/lib/shipping";
 import { ProductImage } from "@/components/product-image";
 
-export function CartView({ freeShippingThreshold }: { freeShippingThreshold: number }) {
+export function CartView({
+  freeShippingThreshold,
+  shippingRate = 150,
+}: {
+  freeShippingThreshold: number;
+  shippingRate?: number;
+}) {
   const { items, subtotal, updateQuantity, removeItem } = useCart();
-  const shippingCost = computeShippingCost(subtotal, freeShippingThreshold);
+  const shippingCost = computeShippingCost(subtotal, freeShippingThreshold, shippingRate);
 
   if (items.length === 0) {
     return (

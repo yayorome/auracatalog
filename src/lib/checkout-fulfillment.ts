@@ -98,7 +98,7 @@ async function sendReceiptSafely(saleId: string) {
   const { data: sale } = await supabaseAdmin
     .from("sales")
     .select(
-      "id, currency, subtotal, shipping_cost, total, shipping_address, client_email, client_name, clients(email, name), sale_items(product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)"
+      "id, currency, subtotal, shipping_cost, discount_amount, coupon_code, total, shipping_address, client_email, client_name, clients(email, name), sale_items(product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)"
     )
     .eq("id", saleId)
     .single();
@@ -127,6 +127,8 @@ async function sendReceiptSafely(saleId: string) {
         saleId: sale.id,
         currency: sale.currency,
         subtotal: Number(sale.subtotal),
+        discountAmount: Number(sale.discount_amount),
+        couponCode: sale.coupon_code,
         shippingCost: Number(sale.shipping_cost),
         total: Number(sale.total),
         items,

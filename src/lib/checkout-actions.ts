@@ -6,7 +6,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createPreference } from "@/lib/mercadopago";
 import { computeShippingCost } from "@/lib/shipping";
-import { fetchFreeShippingThreshold } from "@/lib/settings";
+import { fetchShippingSettings } from "@/lib/settings";
+import { validateCoupon } from "@/lib/coupons";
 import { discardSale as discardAbandonedSale } from "@/lib/discard-sale";
 import { lookupPostalCode, isValidNeighborhoodForPostalCode } from "@/lib/postal-code";
 import { siteUrl } from "@/lib/site-url";
@@ -84,9 +85,18 @@ export async function createCheckoutAction(
   // Set by checkout-form.tsx when the customer chose "Enviar a una dirección
   // diferente" instead of their saved one.
   const shipToDifferentAddress = formData.get("differentAddress") === "true";
+  const couponCode = String(formData.get("couponCode") ?? "").trim();
 
   if (!name || !street || !postalCode) {
     return { error: "Completa tu nombre y dirección de envío." };
+  }
+
+  if (!exteriorNumber) {
+    return { error: "Ingresa el número exterior de tu dirección." };
+  }
+
+  if (!neighborhood) {
+    return { error: "Selecciona tu colonia para continuar." };
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -106,7 +116,7 @@ export async function createCheckoutAction(
   if (!postalCodeInfo) {
     return { error: "El código postal no existe." };
   }
-  if (neighborhood && !isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
+  if (!isValidNeighborhoodForPostalCode(postalCodeInfo.colonias, neighborhood)) {
     return { error: "La colonia no corresponde a ese código postal." };
   }
 
@@ -264,13 +274,32 @@ export async function createCheckoutAction(
     .select("line_total")
     .eq("sale_id", sale.id);
   const subtotal = (items ?? []).reduce((sum, i) => sum + Number(i.line_total), 0);
-  const shippingCost = computeShippingCost(subtotal, await fetchFreeShippingThreshold());
-  const total = subtotal + shippingCost;
+
+  let appliedCouponId: string | null = null;
+  let appliedCouponCode: string | null = null;
+  let discountAmount = 0;
+
+  if (couponCode) {
+    const couponValidation = await validateCoupon(couponCode, subtotal);
+    if (!couponValidation.valid || !couponValidation.coupon) {
+      await discardAbandonedSale(sale.id);
+      return { error: couponValidation.error ?? "El cupón ingresado no es válido." };
+    }
+    appliedCouponId = couponValidation.coupon.id;
+    appliedCouponCode = couponValidation.coupon.code;
+    discountAmount = couponValidation.coupon.discountAmount;
+  }
+
+  const discountedSubtotal = Math.max(0, subtotal - discountAmount);
+  const { freeShippingThreshold, shippingCost: shippingRate } = await fetchShippingSettings();
+  const shippingCost = computeShippingCost(discountedSubtotal, freeShippingThreshold, shippingRate);
+  const total = discountedSubtotal + shippingCost;
 
   // sales.subtotal/total are protected columns (sales_prevent_protected_update
   // trigger) — a plain .update() is silently rejected outside this RPC, which
-  // mirrors how mark_sale_paid() is allowed to touch them. shipping_cost
-  // isn't one of the protected columns, so a normal update is fine for it.
+  // mirrors how mark_sale_paid() is allowed to touch them. shipping_cost,
+  // coupon_id, coupon_code, and discount_amount aren't protected columns,
+  // so a normal update is fine for them.
   const { error: totalsError } = await supabaseAdmin.rpc("set_sale_pending_totals", {
     p_sale_id: sale.id,
     p_subtotal: subtotal,
@@ -280,13 +309,18 @@ export async function createCheckoutAction(
     await discardAbandonedSale(sale.id);
     return { error: "No se pudo calcular el total de tu pedido. Intenta de nuevo." };
   }
-  const { error: shippingCostError } = await supabaseAdmin
+  const { error: saleDetailsError } = await supabaseAdmin
     .from("sales")
-    .update({ shipping_cost: shippingCost })
+    .update({
+      shipping_cost: shippingCost,
+      coupon_id: appliedCouponId,
+      coupon_code: appliedCouponCode,
+      discount_amount: discountAmount,
+    })
     .eq("id", sale.id);
-  if (shippingCostError) {
+  if (saleDetailsError) {
     await discardAbandonedSale(sale.id);
-    return { error: "No se pudo calcular el envío de tu pedido. Intenta de nuevo." };
+    return { error: "No se pudieron guardar los detalles de descuento y envío. Intenta de nuevo." };
   }
 
   const { data: paymentRow, error: paymentError } = await supabaseAdmin

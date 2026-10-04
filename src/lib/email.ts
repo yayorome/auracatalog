@@ -16,6 +16,8 @@ export interface OrderReceiptEmail {
   saleId: string;
   currency: string;
   subtotal: number;
+  discountAmount?: number;
+  couponCode?: string | null;
   shippingCost: number;
   total: number;
   items: OrderReceiptItem[];
@@ -71,6 +73,18 @@ export async function sendOrderReceiptEmail(order: OrderReceiptEmail): Promise<v
             ${formatPrice(order.subtotal, order.currency)}
           </td>
         </tr>
+        ${
+          order.discountAmount && order.discountAmount > 0
+            ? `<tr>
+                <td style="color:#2e7d32;font-size:13px;">
+                  Descuento ${order.couponCode ? `(${escapeHtml(order.couponCode)})` : ""}
+                </td>
+                <td style="color:#2e7d32;font-size:13px;text-align:right;">
+                  -${formatPrice(order.discountAmount, order.currency)}
+                </td>
+              </tr>`
+            : ""
+        }
         <tr>
           <td style="color:#45474a;font-size:13px;">Envío</td>
           <td style="color:#45474a;font-size:13px;text-align:right;">

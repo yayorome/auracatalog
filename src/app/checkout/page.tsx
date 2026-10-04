@@ -1,7 +1,7 @@
 import { CheckoutForm } from "@/components/checkout-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { lookupPostalCode } from "@/lib/postal-code";
-import { fetchFreeShippingThreshold } from "@/lib/settings";
+import { fetchShippingSettings } from "@/lib/settings";
 
 export default async function CheckoutPage() {
   const supabase = await createSupabaseServerClient();
@@ -23,7 +23,7 @@ export default async function CheckoutPage() {
     ? await lookupPostalCode(supabase, client.postal_code)
     : null;
 
-  const freeShippingThreshold = await fetchFreeShippingThreshold();
+  const { freeShippingThreshold, shippingCost } = await fetchShippingSettings();
 
   return (
     <div className="mx-auto max-w-[640px] px-5 py-6 md:px-16">
@@ -35,6 +35,7 @@ export default async function CheckoutPage() {
         isLoggedIn={Boolean(user)}
         initialColonias={postalCodeInfo?.colonias ?? []}
         freeShippingThreshold={freeShippingThreshold}
+        shippingRate={shippingCost}
       />
     </div>
   );

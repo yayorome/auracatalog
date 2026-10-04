@@ -29,7 +29,7 @@ export default async function OrderDetailPage({
   // own orders — a well-formed id belonging to someone else just returns null.
   const { data: sale, error } = await supabase
     .from("sales")
-    .select("id, status, fulfillment_status, tracking_number, carrier, subtotal, shipping_cost, total, currency, created_at, shipping_address, sale_items(id, product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)")
+    .select("id, status, fulfillment_status, tracking_number, carrier, subtotal, shipping_cost, discount_amount, coupon_code, total, currency, created_at, shipping_address, sale_items(id, product_name_snapshot, milliliters_snapshot, quantity, unit_price, line_total)")
     .eq("id", id)
     .maybeSingle();
 
@@ -101,6 +101,12 @@ export default async function OrderDetailPage({
           <span>Subtotal</span>
           <span>{formatPrice(Number(sale.subtotal), sale.currency)}</span>
         </div>
+        {Number(sale.discount_amount) > 0 && (
+          <div className="flex items-center justify-between text-sm text-aura-tertiary">
+            <span>Descuento {sale.coupon_code ? `(${sale.coupon_code})` : ""}</span>
+            <span>-{formatPrice(Number(sale.discount_amount), sale.currency)}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between text-sm text-aura-on-surface-variant">
           <span>Envío</span>
           <span>

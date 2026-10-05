@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 
 import { registerAction, type AuthActionState } from "@/lib/auth-actions";
 import { lookupPostalCodeAction } from "@/lib/postal-code-actions";
@@ -15,32 +15,55 @@ export function RegisterForm({ next }: { next: string }) {
     initialState
   );
 
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [street, setStreet] = useState("");
+  const [exteriorNumber, setExteriorNumber] = useState("");
+  const [interiorNumber, setInteriorNumber] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [colonias, setColonias] = useState<string[]>([]);
   const [neighborhood, setNeighborhood] = useState("");
+  const [municipality, setMunicipality] = useState("");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
   const [postalCodeHint, setPostalCodeHint] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+
   const passwordMismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
   const passwordError = password.length > 0 ? validatePassword(password) : null;
-  const municipalityRef = useRef<HTMLInputElement>(null);
-  const cityRef = useRef<HTMLInputElement>(null);
-  const stateRef = useRef<HTMLInputElement>(null);
-  // Municipio/ciudad/estado come from the CP catalog: once autofilled they're
-  // locked, and the colonia select is only usable when the CP has several.
-  const [locked, setLocked] = useState({
-    municipality: false,
-    city: false,
-    state: false,
-  });
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  // All required fields must be present and valid to allow account creation:
+  // fullName, email, password & confirmation, street, exteriorNumber, postalCode, and selected colonia.
+  const isFormComplete = Boolean(
+    fullName.trim() &&
+    email.trim() &&
+    isEmailValid &&
+    password &&
+    !passwordError &&
+    confirmPassword &&
+    !passwordMismatch &&
+    password === confirmPassword &&
+    street.trim() &&
+    exteriorNumber.trim() &&
+    postalCode.trim().length === 5 &&
+    !postalCodeHint &&
+    neighborhood.trim() &&
+    municipality.trim() &&
+    stateName.trim()
+  );
 
   async function lookupAndFill(cp: string) {
     const info = await lookupPostalCodeAction(cp);
     if (!info) {
       setColonias([]);
       setNeighborhood("");
-      setLocked({ municipality: false, city: false, state: false });
+      setMunicipality("");
+      setCity("");
+      setStateName("");
       setPostalCodeHint("Código postal no encontrado.");
       return;
     }
@@ -49,14 +72,9 @@ export function RegisterForm({ next }: { next: string }) {
     setNeighborhood((prev) =>
       info.colonias.length === 1 ? info.colonias[0] : info.colonias.includes(prev) ? prev : ""
     );
-    setLocked({
-      municipality: Boolean(info.municipio),
-      city: Boolean(info.city),
-      state: Boolean(info.estado),
-    });
-    if (municipalityRef.current) municipalityRef.current.value = info.municipio;
-    if (cityRef.current) cityRef.current.value = info.city ?? "";
-    if (stateRef.current) stateRef.current.value = info.estado;
+    setMunicipality(info.municipio);
+    setCity(info.city ?? "");
+    setStateName(info.estado);
   }
 
   function handlePostalCodeChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -66,7 +84,9 @@ export function RegisterForm({ next }: { next: string }) {
     if (trimmed.length !== 5) {
       setColonias([]);
       setNeighborhood("");
-      setLocked({ municipality: false, city: false, state: false });
+      setMunicipality("");
+      setCity("");
+      setStateName("");
       setPostalCodeHint(null);
       return;
     }
@@ -83,8 +103,9 @@ export function RegisterForm({ next }: { next: string }) {
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    if (password !== confirmPassword || validatePassword(password)) {
+    if (!isFormComplete) {
       e.preventDefault();
+      return;
     }
   }
 
@@ -92,12 +113,21 @@ export function RegisterForm({ next }: { next: string }) {
     <form action={formAction} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
 
-      <Field label="Nombre completo" name="fullName" autoComplete="name" required />
+      <Field
+        label="Nombre completo"
+        name="fullName"
+        autoComplete="name"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        required
+      />
       <Field
         label="Correo electrónico"
         name="email"
         type="email"
         autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
         required
       />
       <Field
@@ -105,6 +135,8 @@ export function RegisterForm({ next }: { next: string }) {
         name="phone"
         type="tel"
         autoComplete="tel"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
       />
       <div className="flex flex-col gap-1">
         <Field
@@ -150,15 +182,32 @@ export function RegisterForm({ next }: { next: string }) {
             name="street"
             autoComplete="address-line1"
             className="sm:col-span-2"
+            value={street}
+            onChange={(e) => setStreet(e.target.value)}
             required
           />
-          <Field label="No. exterior" name="exteriorNumber" autoComplete="off" required />
-          <Field label="No. interior (opcional)" name="interiorNumber" autoComplete="off" />
+          <Field
+            label="No. exterior"
+            name="exteriorNumber"
+            autoComplete="off"
+            value={exteriorNumber}
+            onChange={(e) => setExteriorNumber(e.target.value)}
+            required
+          />
+          <Field
+            label="No. interior (opcional)"
+            name="interiorNumber"
+            autoComplete="off"
+            value={interiorNumber}
+            onChange={(e) => setInteriorNumber(e.target.value)}
+          />
           <div className="flex flex-col gap-1">
             <Field
               label="Código postal"
               name="postalCode"
               autoComplete="postal-code"
+              maxLength={5}
+              inputMode="numeric"
               value={postalCode}
               onChange={handlePostalCodeChange}
               required
@@ -170,7 +219,7 @@ export function RegisterForm({ next }: { next: string }) {
             name="neighborhood"
             value={neighborhood}
             onChange={(e) => setNeighborhood(e.target.value)}
-            disabled={colonias.length <= 1}
+            disabled={colonias.length === 0}
             required
           >
             <option value="" disabled>
@@ -182,29 +231,30 @@ export function RegisterForm({ next }: { next: string }) {
               </option>
             ))}
           </SelectField>
-          {colonias.length === 1 && <input type="hidden" name="neighborhood" value={neighborhood} />}
           <Field
             label="Municipio/Alcaldía"
             name="municipality"
-            readOnly={locked.municipality}
-            autoComplete="off"
-            inputRef={municipalityRef}
+            value={municipality}
+            readOnly
+            tabIndex={-1}
+            placeholder="Se autocompleta con el C.P."
             required
           />
           <Field
             label="Ciudad"
             name="city"
-            readOnly={locked.city}
-            autoComplete="address-level2"
-            inputRef={cityRef}
-            required
+            value={city}
+            readOnly
+            tabIndex={-1}
+            placeholder="Se autocompleta con el C.P."
           />
           <Field
             label="Estado"
             name="state"
-            readOnly={locked.state}
-            autoComplete="address-level1"
-            inputRef={stateRef}
+            value={stateName}
+            readOnly
+            tabIndex={-1}
+            placeholder="Se autocompleta con el C.P."
             required
           />
         </div>
@@ -218,8 +268,8 @@ export function RegisterForm({ next }: { next: string }) {
 
       <button
         type="submit"
-        disabled={pending || passwordMismatch || !!passwordError}
-        className="mt-2 rounded-aura-base bg-aura-primary px-5 py-3 text-sm font-semibold text-aura-on-primary disabled:opacity-60"
+        disabled={pending || !isFormComplete}
+        className="mt-2 rounded-aura-base bg-aura-primary px-5 py-3 text-sm font-semibold text-aura-on-primary disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "Creando cuenta…" : "Crear cuenta"}
       </button>
@@ -239,23 +289,27 @@ function Field({
   name,
   type = "text",
   className,
-  inputRef,
+  readOnly,
   ...rest
 }: {
   label: string;
   name: string;
   type?: string;
   className?: string;
-  inputRef?: React.Ref<HTMLInputElement>;
+  readOnly?: boolean;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className={`flex flex-col gap-1 text-sm text-aura-on-surface ${className ?? ""}`}>
       {label}
       <input
-        ref={inputRef}
         name={name}
         type={type}
-        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline read-only:cursor-not-allowed read-only:opacity-60"
+        readOnly={readOnly}
+        className={`rounded-aura-base border border-aura-outline-variant px-3 py-2 text-base outline-none focus:border-aura-outline ${
+          readOnly
+            ? "cursor-not-allowed bg-aura-surface-container text-aura-on-surface-variant select-none opacity-80"
+            : "bg-aura-surface-container-lowest"
+        }`}
         {...rest}
       />
     </label>
@@ -279,7 +333,7 @@ function SelectField({
       {label}
       <select
         name={name}
-        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline disabled:opacity-60"
+        className="rounded-aura-base border border-aura-outline-variant bg-aura-surface-container-lowest px-3 py-2 text-base outline-none focus:border-aura-outline disabled:cursor-not-allowed disabled:bg-aura-surface-container disabled:text-aura-on-surface-variant disabled:opacity-60"
         {...rest}
       >
         {children}

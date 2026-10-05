@@ -38,25 +38,35 @@ export async function registerAction(
   const state = String(formData.get("state") ?? "").trim();
   const next = safeNext(formData.get("next"));
 
-  if (!email || !password || !fullName) {
-    return { error: "Completa tu nombre, correo y contraseña." };
+  if (!fullName) {
+    return { error: "Ingresa tu nombre completo." };
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    return { error: "Ingresa un correo electrónico válido." };
+  }
+  if (!password) {
+    return { error: "Ingresa tu contraseña." };
   }
   const passwordError = validatePassword(password);
   if (passwordError) {
     return { error: passwordError };
   }
+  if (!confirmPassword) {
+    return { error: "Confirma tu contraseña." };
+  }
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
-  // Shipping address is required at registration — interiorNumber is the
-  // only optional field (not every address has one).
+  // Shipping address is required at registration — interiorNumber and city
+  // are optional (not every address has an interior number, and SEPOMEX
+  // doesn't have a distinct city for all postal codes).
   if (
     !street ||
     !exteriorNumber ||
     !neighborhood ||
     !postalCode ||
     !municipality ||
-    !city ||
     !state
   ) {
     return { error: "Completa tu dirección de envío." };
@@ -91,9 +101,9 @@ export async function registerAction(
         interior_number: interiorNumber || null,
         neighborhood: neighborhood || null,
         postal_code: postalCode || null,
-        municipality: municipality || null,
-        city: city || null,
-        state: state || null,
+        municipality: postalCodeInfo.municipio || municipality || null,
+        city: postalCodeInfo.city || city || null,
+        state: postalCodeInfo.estado || state || null,
       },
     },
   });

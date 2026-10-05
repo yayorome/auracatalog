@@ -7,8 +7,14 @@ import { useCart } from "@/lib/cart-context";
 export function ClearCartOnMount() {
   const { clear } = useCart();
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem("aura-cart");
+      } catch {
+        // ignore
+      }
+    }
     clear();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clear]);
   return null;
 }
